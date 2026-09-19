@@ -102,12 +102,14 @@
     };
 
     if (treatment === 'pause' && result.kind === 'video') {
+      // Recorded so cleanup can resume only the videos RealView stopped.
+      if (wasPlaying) el.dataset.realviewPaused = '1';
       el.pause();
     }
 
     const badge = buildBadge(el, result, onReveal);
 
-    if (isMedia && isOutOfFlow(el)) {
+    if (isMedia && (isOutOfFlow(el) || !wrappable(el))) {
       floatBadge(el, badge);
     } else if (isMedia) {
       wrapMedia(el).appendChild(badge);
@@ -125,6 +127,13 @@
   function isOutOfFlow(el) {
     const position = getComputedStyle(el).position;
     return position === 'absolute' || position === 'fixed';
+  }
+
+  // A <picture> only drives the source selection of its direct-child <img>, so
+  // reparenting that image would change which file the browser displays.
+  function wrappable(el) {
+    const parent = el.parentElement;
+    return !parent || parent.tagName !== 'PICTURE';
   }
 
   const floated = new Map();

@@ -17,6 +17,10 @@
   let observer = null;
   let scanScheduled = false;
   let scanning = false;
+  let rescanRequested = false;
+  // Bumped whenever settings change, so a scan that is still awaiting media
+  // cannot apply treatments the user has since turned off.
+  let generation = 0;
 
   // Element -> detection result, so threshold changes re-apply without re-analyzing.
   const results = new Map();
@@ -60,7 +64,12 @@
   function apply() {
     let flagged = 0;
     results.forEach((result, el) => {
-      if (!el.isConnected) return;
+      // Feeds discard old posts; keeping their elements as Map keys would retain
+      // every detached subtree of a long session.
+      if (!el.isConnected) {
+        results.delete(el);
+        return;
+      }
       if (result.score < settings.threshold) return;
       flagged += 1;
       Presentation.attach(el, result, settings.treatments[result.kind]);
@@ -78,19 +87,46 @@
     const detector = detectors[kind];
     const result = kind === 'text' ? detector.analyze(el.innerText) : await detector.analyze(el);
     if (result) results.set(el, result);
+    else if (kind !== 'text') retryWhenLoaded(el, kind);
+  }
+
+  // Media that misses its readiness timeout yields no result, and its eventual
+  // load fires no mutation, so re-open it for analysis when the bytes arrive.
+  function retryWhenLoaded(el, kind) {
+    el.addEventListener(
+      kind === 'video' ? 'loadeddata' : 'load',
+      () => {
+        evaluated.delete(el);
+        scheduleScan();
+      },
+      { once: true }
+    );
   }
 
   async function scan(root) {
-    if (!settings || !Settings.isSiteEnabled(settings, location.hostname) || scanning) return;
+    if (!settings || !Settings.isSiteEnabled(settings, location.hostname)) return;
+    if (scanning) {
+      rescanRequested = true;
+      return;
+    }
     scanning = true;
+    const token = generation;
     try {
       const batches = collect(root);
       for (const kind of ['text', 'image', 'video']) {
-        for (const el of batches[kind]) await analyze(el, kind);
+        for (const el of batches[kind]) {
+          if (token !== generation) return;
+          await analyze(el, kind);
+        }
       }
+      if (token !== generation) return;
       apply();
     } finally {
       scanning = false;
+      if (token === generation && rescanRequested) {
+        rescanRequested = false;
+        scheduleScan();
+      }
     }
   }
 
@@ -104,6 +140,10 @@
   }
 
   function clearMarks() {
+    document.querySelectorAll('video[data-realview-paused="1"]').forEach((video) => {
+      delete video.dataset.realviewPaused;
+      video.play().catch(() => {});
+    });
     document.querySelectorAll('.rv-badge').forEach((node) => node.remove());
     document.querySelectorAll('.rv-wrap').forEach((wrap) => Presentation.unwrapMedia(wrap));
     document.querySelectorAll('.rv-item').forEach((el) => {
@@ -127,6 +167,8 @@
   }
 
   function teardown() {
+    generation += 1;
+    rescanRequested = false;
     if (observer) {
       observer.disconnect();
       observer = null;
@@ -142,6 +184,8 @@
       teardown();
       return;
     }
+    generation += 1;
+    rescanRequested = false;
     clearMarks();
     apply();
     startObserver();
@@ -155,8 +199,10 @@
   async function init() {
     settings = await Settings.load();
     if (!Settings.isSiteEnabled(settings, location.hostname)) return;
-    await scan(document.body);
+    // Observe first: the initial scan awaits media, and content appended during
+    // that wait would otherwise never be seen.
     startObserver();
+    await scan(document.body);
   }
 
   if (document.readyState === 'loading') {
