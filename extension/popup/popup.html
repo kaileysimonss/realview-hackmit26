@@ -1,0 +1,69 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <link rel="stylesheet" href="popup.css" />
+    <title>RealView</title>
+  </head>
+  <body>
+    <header>
+      <h1>RealView</h1>
+      <label class="switch">
+        <input type="checkbox" id="enabled" />
+        <span>Scanning on</span>
+      </label>
+    </header>
+
+    <section>
+      <div class="row">
+        <label for="threshold">Confidence threshold</label>
+        <output id="threshold-value">60%</output>
+      </div>
+      <input type="range" id="threshold" min="0.2" max="0.95" step="0.05" />
+      <p class="hint">Higher = cautious labeling. Lower = aggressive filtering.</p>
+    </section>
+
+    <section>
+      <h2>Treatment by media type</h2>
+      <div class="row">
+        <label for="text-treatment">Text</label>
+        <select id="text-treatment"></select>
+      </div>
+      <div class="row">
+        <label for="image-treatment">Images</label>
+        <select id="image-treatment"></select>
+      </div>
+      <div class="row">
+        <label for="video-treatment">Video</label>
+        <select id="video-treatment"></select>
+      </div>
+    </section>
+
+    <section>
+      <h2>This site</h2>
+      <div class="row">
+        <span id="hostname">—</span>
+        <button type="button" id="site-toggle">Disable here</button>
+      </div>
+      <label class="switch small">
+        <input type="checkbox" id="indicator" />
+        <span>Show scanning indicator</span>
+      </label>
+    </section>
+
+    <footer>
+      <p>
+        RealView analyzes only visible page text, images, and video frames, on your device.
+        Password fields, form inputs, and editors are skipped. Nothing is uploaded or stored
+        beyond the current page view; images hosted on another domain are refetched from that
+        same host, without credentials, so their pixels can be measured.
+      </p>
+      <p class="caveat">
+        Detection reports signals and likelihood, never proof. Every treatment is reversible
+        with the reveal control.
+      </p>
+    </footer>
+    <script src="../src/settings.js"></script>
+    <script src="popup.js"></script>
+  </body>
+</html>
