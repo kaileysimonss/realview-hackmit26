@@ -3,7 +3,10 @@
   const Settings = self.RealViewSettings;
   const Presentation = self.RealViewPresentation;
   const detectors = {
-    text: self.RealViewTextDetector,
+    // Local RoBERTa classifier, run via an offscreen document (relayed through the service
+    // worker) rather than the service worker itself, which can't run transformers.js at all.
+    // Watch the console for "[RealView/LocalModel]" — first call downloads the ~120MB model.
+    text: self.RealViewLocalTextDetector,
     image: self.RealViewImageDetector,
     video: self.RealViewVideoDetector
   };
@@ -31,6 +34,19 @@
   const isSensitive = (el) =>
     el.closest(SENSITIVE_SELECTOR) !== null || el.closest('[data-realview-exclude]') !== null;
 
+  // Reloading the extension orphans any content script already injected into open tabs —
+  // chrome.runtime.sendMessage then throws synchronously ("Extension context invalidated"),
+  // which a trailing .catch() doesn't cover since no promise is ever returned. Harmless (the
+  // tab just needs a refresh to pick up the new extension), so swallow it instead of an
+  // uncaught error every time.
+  function safeSendMessage(message) {
+    try {
+      chrome.runtime.sendMessage(message).catch(() => {});
+    } catch (err) {
+      // context invalidated — nothing to do until the tab is refreshed
+    }
+  }
+
   function isVisible(el) {
     const rect = el.getBoundingClientRect();
     if (rect.width < 24 || rect.height < 12) return false;
@@ -46,6 +62,28 @@
     return isVisible(el);
   }
 
+  // For each block candidate, mark the nearest block-candidate ancestor and stop: that
+  // ancestor's own turn in the loop continues the chain up to *its* nearest ancestor, so
+  // every wrapper still ends up marked without re-walking the same spine repeatedly. This
+  // keeps the cost proportional to DOM depth per element instead of subtree size per element
+  // (an `el.querySelector(...)` per candidate is O(n * subtree size) and can hang on real
+  // pages with thousands of nested divs; this is O(n * depth)).
+  function markBlockWrappers(blockCandidates) {
+    const blockSet = new Set(blockCandidates);
+    const hasBlockDescendant = new WeakSet();
+    for (const el of blockCandidates) {
+      let ancestor = el.parentElement;
+      while (ancestor) {
+        if (blockSet.has(ancestor)) {
+          hasBlockDescendant.add(ancestor);
+          break;
+        }
+        ancestor = ancestor.parentElement;
+      }
+    }
+    return hasBlockDescendant;
+  }
+
   function collect(root) {
     const scope = root instanceof Element ? root : document.body;
     if (!scope) return { text: [], image: [], video: [] };
@@ -54,6 +92,8 @@
       ...scope.querySelectorAll(selector)
     ];
 
+    const wrappers = markBlockWrappers(within(TEXT_BLOCK_SELECTOR));
+
     return {
       text: within(TEXT_SELECTOR).filter(
         // Leaf-only: a block containing another block-level match is a wrapper, not content
@@ -61,7 +101,7 @@
         // or every paragraph with a styled word inside it would get excluded as a "wrapper").
         // The char floor here is just a cheap pre-filter; text.js's own word-count gate does
         // the real cutoff.
-        (el) => eligible(el) && !el.querySelector(TEXT_BLOCK_SELECTOR) && el.innerText.trim().length > 20
+        (el) => eligible(el) && !wrappers.has(el) && el.innerText.trim().length > 20
       ),
       image: within('img').filter(eligible),
       video: within('video').filter(eligible)
@@ -120,13 +160,15 @@
         Settings.save({ disabledSites });
       }
     });
-    chrome.runtime.sendMessage({ type: 'realview:stats', flagged }).catch(() => {});
+    safeSendMessage({ type: 'realview:stats', flagged });
   }
 
   async function analyze(el, kind) {
     evaluated.add(el);
     const detector = detectors[kind];
-    const result = kind === 'text' ? detector.analyze(el.innerText) : await detector.analyze(el);
+    // Awaiting unconditionally is safe even for the (currently unused) sync text detector —
+    // await on a non-Promise value just resolves immediately.
+    const result = await (kind === 'text' ? detector.analyze(el.innerText) : detector.analyze(el));
     if (result) results.set(el, result);
   }
 
@@ -183,7 +225,7 @@
     }
     clearMarks();
     Presentation.indicator({ visible: false, scanned: 0, flagged: 0 });
-    chrome.runtime.sendMessage({ type: 'realview:stats', flagged: 0 }).catch(() => {});
+    safeSendMessage({ type: 'realview:stats', flagged: 0 });
   }
 
   async function refresh() {

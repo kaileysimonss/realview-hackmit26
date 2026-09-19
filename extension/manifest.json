@@ -3,8 +3,11 @@
   "name": "RealView — AI Media Detector",
   "version": "0.1.0",
   "description": "Detect, label, and filter likely AI-generated text, images, and video. Analysis runs locally on visible page content.",
-  "permissions": ["storage", "activeTab", "scripting"],
+  "permissions": ["storage", "activeTab", "scripting", "offscreen"],
   "host_permissions": ["<all_urls>"],
+  "content_security_policy": {
+    "extension_pages": "script-src 'self' 'wasm-unsafe-eval'; object-src 'self';"
+  },
   "action": {
     "default_title": "RealView",
     "default_popup": "popup/popup.html"
@@ -23,6 +26,7 @@
         "src/detect/signals.js",
         "src/detect/pixels.js",
         "src/detect/text.js",
+        "src/detect/local-text.js",
         "src/detect/image.js",
         "src/detect/video.js",
         "src/presentation.js",
