@@ -2,6 +2,7 @@
 (() => {
   const Settings = self.RealViewSettings;
   const Presentation = self.RealViewPresentation;
+  const Model = self.RealViewModelDetector;
   const detectors = {
     text: self.RealViewTextDetector,
     image: self.RealViewImageDetector,
@@ -21,6 +22,9 @@
   // Bumped whenever settings change, so a scan that is still awaiting media
   // cannot apply treatments the user has since turned off.
   let generation = 0;
+  // Each model call is billed, so a page can only spend this many before the
+  // rest of it falls back to the local heuristics.
+  let modelBudget = 0;
 
   // Element -> detection result, so threshold changes re-apply without re-analyzing.
   const results = new Map();
@@ -77,7 +81,8 @@
     Presentation.indicator({
       visible: settings.showIndicator,
       scanned: results.size,
-      flagged
+      flagged,
+      remote: settings.llmEnabled
     });
     chrome.runtime.sendMessage({ type: 'realview:stats', flagged }).catch(() => {});
   }
@@ -85,7 +90,17 @@
   async function analyze(el, kind) {
     evaluated.add(el);
     const detector = detectors[kind];
-    const result = kind === 'text' ? detector.analyze(el.innerText) : await detector.analyze(el);
+    // The local pass runs first either way: it is free, it waits for the media
+    // to decode, and it is the fallback when the model call fails or is off.
+    const local = kind === 'text' ? detector.analyze(el.innerText) : await detector.analyze(el);
+    let result = local;
+
+    if (settings.llmEnabled && modelBudget > 0 && (local || kind !== 'text')) {
+      modelBudget -= 1;
+      const judged = await Model.analyze(el, kind);
+      if (judged) result = judged;
+    }
+
     if (result) results.set(el, result);
     else if (kind !== 'text') retryWhenLoaded(el, kind);
   }
@@ -174,7 +189,7 @@
       observer = null;
     }
     clearMarks();
-    Presentation.indicator({ visible: false, scanned: 0, flagged: 0 });
+    Presentation.indicator({ visible: false, scanned: 0, flagged: 0, remote: false });
     chrome.runtime.sendMessage({ type: 'realview:stats', flagged: 0 }).catch(() => {});
   }
 
@@ -186,6 +201,7 @@
     }
     generation += 1;
     rescanRequested = false;
+    modelBudget = settings.llmMaxItems;
     clearMarks();
     apply();
     startObserver();
@@ -199,6 +215,7 @@
   async function init() {
     settings = await Settings.load();
     if (!Settings.isSiteEnabled(settings, location.hostname)) return;
+    modelBudget = settings.llmMaxItems;
     // Observe first: the initial scan awaits media, and content appended during
     // that wait would otherwise never be seen.
     startObserver();

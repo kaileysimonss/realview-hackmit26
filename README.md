@@ -33,7 +33,11 @@ Regenerate demo media with `python3 demo/generate_assets.py` (requires Pillow, n
 
 ## Detection
 
-All analysis runs on-device; nothing is uploaded.
+Two detectors, selected in the popup. The local heuristics run on-device and are the
+default; model analysis sends content to an LLM provider and takes over when it is switched
+on with a key.
+
+### Local heuristics (default)
 
 | Media | Signals |
 | --- | --- |
@@ -54,6 +58,20 @@ machine, and polished human writing or compressed media can trip them. The UI is
 that fact: confidence is always shown, the driving signals are listed, and the user sets the
 threshold.
 
+### Model analysis (opt-in)
+
+Turn on *AI model analysis* in the popup, pick OpenAI or Anthropic, and paste your own API
+key. Each visible passage, image, and pair of video frames is then judged by the model,
+which returns a 0–100 likelihood and a one-line reason that becomes the badge's explanation.
+
+- The key is kept in `chrome.storage.local` on that machine (never `sync`, never the page)
+  and the request is issued from the service worker, so the page can neither read the key
+  nor see the response.
+- Frames are downscaled to 512px JPEG and passages truncated at 4000 characters; calls are
+  capped at 3 concurrent and `llmMaxItems` (40) per page, and cached per content hash.
+- The heuristics still run first and remain the result whenever the model call fails, the
+  key is missing, or the budget is spent — so the extension never goes silent.
+
 ## Treatments
 
 - **Text** — blur, strikethrough, recolor, dim, label only
@@ -62,9 +80,12 @@ threshold.
 
 ## Privacy
 
-- Only visible page content is analyzed, on-device. Nothing is sent to any RealView service;
-  the one network request is the extension refetching a cross-origin image from the host that
-  already served it to the page, without credentials.
+- Only visible page content is analyzed. With model analysis off (the default), everything
+  stays on-device and the one network request is the extension refetching a cross-origin
+  image from the host that already served it to the page, without credentials.
+- With model analysis on, the passages and downscaled frames being scored are sent to the
+  provider you chose, under your own key. Nothing goes to a RealView service — there isn't
+  one. The scanning indicator says so while it is active, and the badge repeats it.
 - Inputs, textareas, selects, forms, and contenteditable regions are never read, and any
   element (or ancestor) marked `data-realview-exclude` is skipped.
 - A scanning indicator shows when RealView is active; scanning can be disabled per site.
