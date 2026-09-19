@@ -16,6 +16,17 @@
   const IMAGE_TREATMENTS = ['blur', 'hide', 'warn', 'label'];
   const VIDEO_TREATMENTS = ['blur', 'pause', 'warn', 'label'];
 
+  const TREATMENT_LABELS = {
+    blur: 'Blur',
+    strikethrough: 'Strikethrough',
+    recolor: 'Recolor',
+    dim: 'Dim',
+    label: 'Label only',
+    hide: 'Hide',
+    warn: 'Warning overlay',
+    pause: 'Pause playback'
+  };
+
   function merge(stored) {
     const settings = { ...DEFAULTS, ...(stored || {}) };
     settings.treatments = { ...DEFAULTS.treatments, ...(stored && stored.treatments) };
@@ -44,6 +55,7 @@
     TEXT_TREATMENTS,
     IMAGE_TREATMENTS,
     VIDEO_TREATMENTS,
+    TREATMENT_LABELS,
     load,
     save,
     merge,

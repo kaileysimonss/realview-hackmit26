@@ -143,34 +143,206 @@
   right: 16px;
   bottom: 16px;
   z-index: 2147483600;
+  font: 12px/1.3 -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+  color: #34d399;
+}
+
+#realview-indicator.rv-indicator-moderate { color: #eab308; }
+#realview-indicator.rv-indicator-likely { color: #f97316; }
+#realview-indicator.rv-indicator-high { color: #ef4444; }
+
+.rv-indicator-summary {
   display: flex;
   align-items: center;
   gap: 8px;
-  flex-wrap: wrap;
-  max-width: 320px;
+  border: 0;
   padding: 8px 12px;
   border-radius: 999px;
-  background: rgba(17, 24, 39, 0.92);
+  cursor: pointer;
+  font: inherit;
+  font-weight: 600;
   color: #f9fafb;
-  font: 12px/1.3 -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+  background: rgba(17, 24, 39, 0.92);
   box-shadow: 0 10px 30px rgba(0, 0, 0, 0.25);
+  white-space: nowrap;
 }
 
-#realview-indicator .rv-dot {
-  width: 8px;
-  height: 8px;
+.rv-indicator-ring {
+  --rv-ratio: 0;
+  position: relative;
+  width: 20px;
+  height: 20px;
+  flex: none;
   border-radius: 50%;
-  background: #34d399;
-  box-shadow: 0 0 0 0 rgba(52, 211, 153, 0.7);
-  animation: rv-pulse 2s infinite;
+  background: conic-gradient(currentColor calc(var(--rv-ratio) * 360deg), rgba(255, 255, 255, 0.25) 0);
+  animation: rv-pulse-ring 2.4s infinite;
 }
 
-#realview-indicator .rv-indicator-note {
-  width: 100%;
+.rv-indicator-ring::after {
+  content: '';
+  position: absolute;
+  inset: 3px;
+  border-radius: 50%;
+  background: #111827;
+}
+
+.rv-indicator-arrow {
+  width: 7px;
+  height: 7px;
+  flex: none;
+  border-right: 2px solid currentColor;
+  border-bottom: 2px solid currentColor;
+  transform: rotate(45deg);
+  transition: transform 0.15s ease;
+  margin-top: -2px;
+  color: #f9fafb;
+}
+
+#realview-indicator.rv-open .rv-indicator-arrow {
+  transform: rotate(-135deg);
+  margin-top: 2px;
+}
+
+.rv-indicator-panel {
+  display: none;
+  position: absolute;
+  right: 0;
+  bottom: calc(100% + 10px);
+  width: 260px;
+  padding: 12px 14px;
+  border-radius: 14px;
+  background: #111827;
+  color: #f9fafb;
+  box-shadow: 0 10px 30px rgba(0, 0, 0, 0.3);
+}
+
+#realview-indicator.rv-open .rv-indicator-panel {
+  display: block;
+}
+
+.rv-indicator-breakdown {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  margin-bottom: 10px;
+  padding-bottom: 10px;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.12);
+}
+
+.rv-indicator-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.rv-indicator-row-label {
   color: #9ca3af;
 }
 
-@keyframes rv-pulse {
-  70% { box-shadow: 0 0 0 8px rgba(52, 211, 153, 0); }
-  100% { box-shadow: 0 0 0 0 rgba(52, 211, 153, 0); }
+.rv-indicator-row-count {
+  font-weight: 600;
+}
+
+.rv-indicator-nav {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 6px;
+  margin-bottom: 10px;
+  padding-bottom: 10px;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.12);
+}
+
+.rv-nav-prev,
+.rv-nav-next {
+  border: 1px solid rgba(255, 255, 255, 0.2);
+  border-radius: 8px;
+  background: transparent;
+  color: #f9fafb;
+  padding: 4px 8px;
+  cursor: pointer;
+  font: inherit;
+  font-weight: 600;
+}
+
+.rv-nav-prev:disabled,
+.rv-nav-next:disabled {
+  opacity: 0.4;
+  cursor: default;
+}
+
+.rv-nav-position {
+  color: #9ca3af;
+  white-space: nowrap;
+}
+
+.rv-indicator-actions {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.rv-quick-label {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  color: #9ca3af;
+}
+
+.rv-quick-threshold-value {
+  color: #f9fafb;
+  font-weight: 600;
+}
+
+.rv-quick-threshold {
+  width: 100%;
+}
+
+.rv-quick-treatments {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.rv-quick-treatment {
+  font: inherit;
+  border-radius: 6px;
+  border: 1px solid rgba(255, 255, 255, 0.2);
+  background: #1f2937;
+  color: #f9fafb;
+  padding: 2px 4px;
+}
+
+.rv-quick-site-toggle {
+  border: 1px solid rgba(255, 255, 255, 0.2);
+  border-radius: 8px;
+  background: transparent;
+  color: #f9fafb;
+  padding: 6px 8px;
+  cursor: pointer;
+  font: inherit;
+  font-weight: 600;
+}
+
+.rv-indicator-note {
+  margin: 10px 0 0;
+  color: #9ca3af;
+}
+
+@keyframes rv-pulse-ring {
+  0% { box-shadow: 0 0 0 0 color-mix(in srgb, currentColor 55%, transparent); }
+  70% { box-shadow: 0 0 0 8px transparent; }
+  100% { box-shadow: 0 0 0 0 transparent; }
+}
+
+.rv-nav-highlight {
+  outline: 3px solid #7c3aed;
+  outline-offset: 3px;
+  animation: rv-nav-flash 1.6s ease;
+}
+
+@keyframes rv-nav-flash {
+  0% { outline-color: #7c3aed; }
+  100% { outline-color: transparent; }
 }
