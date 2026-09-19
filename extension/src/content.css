@@ -54,6 +54,9 @@
 }
 
 .rv-badge-summary {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
   border: 0;
   border-radius: 999px;
   padding: 4px 10px;
@@ -62,6 +65,22 @@
   font-weight: 600;
   color: #fff;
   background: #6b7280;
+}
+
+.rv-badge-arrow {
+  width: 8px;
+  height: 8px;
+  flex: none;
+  border-right: 2px solid currentColor;
+  border-bottom: 2px solid currentColor;
+  transform: rotate(45deg);
+  transition: transform 0.15s ease;
+  margin-top: -2px;
+}
+
+.rv-badge.rv-open .rv-badge-arrow {
+  transform: rotate(-135deg);
+  margin-top: 2px;
 }
 
 .rv-risk-high .rv-badge-summary {
