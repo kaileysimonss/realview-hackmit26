@@ -16,10 +16,6 @@
     return 'rv-risk-moderate';
   };
 
-  function percent(score) {
-    return `${Math.round(score * 100)}%`;
-  }
-
   const CAVEAT = {
     metadata:
       'Limited analysis: pixel data was unavailable, so this is based on metadata only. Detection signals are not proof.',
@@ -36,7 +32,17 @@
     const summary = document.createElement('button');
     summary.type = 'button';
     summary.className = 'rv-badge-summary';
-    summary.textContent = `RealView: ${result.verdict} · ${percent(result.score)}`;
+    summary.setAttribute('aria-expanded', 'false');
+
+    const summaryLabel = document.createElement('span');
+    summaryLabel.className = 'rv-badge-label';
+    summaryLabel.textContent = `RealView: ${result.verdict}`;
+
+    const summaryArrow = document.createElement('span');
+    summaryArrow.className = 'rv-badge-arrow';
+    summaryArrow.setAttribute('aria-hidden', 'true');
+
+    summary.append(summaryLabel, summaryArrow);
 
     const details = document.createElement('div');
     details.className = 'rv-badge-details';
@@ -70,7 +76,8 @@
     summary.addEventListener('click', (event) => {
       event.preventDefault();
       event.stopPropagation();
-      badge.classList.toggle('rv-open');
+      const open = badge.classList.toggle('rv-open');
+      summary.setAttribute('aria-expanded', String(open));
     });
 
     badge.append(summary, details);
