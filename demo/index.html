@@ -1,0 +1,115 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>RealView demo feed</title>
+    <link rel="stylesheet" href="demo.css" />
+  </head>
+  <body>
+    <header class="site">
+      <h1>Mixed-media feed</h1>
+      <p>
+        A controlled page with human-made and synthetic text, images, and video. Install the
+        RealView extension, then scroll to see cross-media filtering.
+      </p>
+      <button id="load-more" type="button">Load more posts</button>
+    </header>
+
+    <main id="feed">
+      <article class="post">
+        <h2>Notes from the bike shop on Mass Ave</h2>
+        <p>
+          I biked over on Saturday because my rear derailleur had been skipping for a week and
+          I was tired of guessing. The mechanic, who I think is named Dev, spun the wheel once,
+          made a face, and told me the hanger was bent. Ten minutes and a bent-hanger tool
+          later it shifted clean. He charged me nothing, which felt wrong, so I bought a tube I
+          did not need and a coffee from next door. Honestly the whole thing took less time
+          than my last attempt at truing a wheel in my kitchen, which ended with a spoke in the
+          radiator and a lot of swearing that my roommate still brings up.
+        </p>
+        <img src="assets/camera-street.png" alt="Street outside the bike shop" />
+      </article>
+
+      <article class="post">
+        <h2>The Transformative Role of Urban Cycling Infrastructure</h2>
+        <p>
+          In today's fast-paced urban environment, cycling infrastructure plays a crucial role
+          in fostering sustainable mobility. Moreover, it is important to note that protected
+          bicycle lanes deliver measurable benefits to riders and pedestrians alike.
+          Additionally, municipalities that leverage a holistic approach to transportation
+          planning can unlock the potential of their existing roadways. Furthermore, a robust
+          framework for evaluating network connectivity enables planners to navigate the
+          complexities of modern mobility. In conclusion, the landscape of urban transportation
+          continues to evolve, and cycling infrastructure remains a testament to thoughtful
+          civic design that seamlessly integrates with broader community objectives.
+        </p>
+        <img
+          src="assets/generated-landscape.png"
+          alt="Midjourney render of a futuristic bike lane"
+        />
+      </article>
+
+      <article class="post">
+        <h2>Two clips from the same block</h2>
+        <p>
+          One of these was recorded on a phone, the other was produced by a video model. Try
+          the pause and warning treatments on each.
+        </p>
+        <div class="clips">
+          <figure>
+            <video src="assets/camera-clip.mp4" controls muted loop playsinline></video>
+            <figcaption>Handheld phone clip</figcaption>
+          </figure>
+          <figure>
+            <video src="assets/generated-clip.mp4" controls muted loop playsinline></video>
+            <figcaption>Generated clip</figcaption>
+          </figure>
+        </div>
+      </article>
+
+      <article class="post">
+        <h2>Comprehensive Insights Into Modern Kitchen Workflows</h2>
+        <p>
+          When it comes to modern kitchen workflows, it is important to note that efficiency
+          and ergonomics are deeply interconnected. Furthermore, the landscape of residential
+          design continues to evolve as homeowners leverage new appliances. Additionally,
+          professionals emphasize that a holistic approach to spatial planning can foster a
+          sense of calm. Moreover, a robust framework for organizing utensils plays a crucial
+          role in reducing preparation time. In conclusion, thoughtful design remains a
+          testament to the enduring value of intentional living spaces.
+        </p>
+        <img src="assets/camera-kitchen.png" alt="Kitchen counter at dusk" />
+      </article>
+
+      <article class="post">
+        <h2>What I actually cooked</h2>
+        <p>
+          Rice, eggs, whatever was left in the crisper drawer. The onion had gone a bit soft
+          and I used it anyway. My smoke alarm went off, which it does roughly every third time
+          I turn the burner past medium, and the neighbor knocked to ask if everything was
+          fine. It was fine. The eggs were not, but the rice held it together and I ate the
+          whole pan standing at the counter while reading a thread about why nobody should
+          store knives in a drawer.
+        </p>
+        <img src="assets/generated-portrait.png" alt="Stable diffusion render of a dinner plate" />
+      </article>
+    </main>
+
+    <section class="privacy" data-realview-exclude>
+      <h2>Privacy check</h2>
+      <p>
+        This comment box is excluded from scanning. RealView skips inputs, textareas, and
+        editable regions so it never reads what you type.
+      </p>
+      <form>
+        <label for="comment">Leave a comment</label>
+        <textarea id="comment" rows="3" placeholder="Nothing here is analyzed"></textarea>
+        <label for="password">Password field (never read)</label>
+        <input id="password" type="password" />
+      </form>
+    </section>
+
+    <script src="demo.js"></script>
+  </body>
+</html>
