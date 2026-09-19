@@ -2,8 +2,11 @@
   const { clamp, ramp, combine, verdict, topSignals } = self.RealViewSignals;
   const { pixelStats, remotePixelStats, scoreStats } = self.RealViewImageDetector;
 
-  const NAME_HINTS = /(sora|runway|pika|veo|synthetic|deepfake|ai-?gen|generated)/i;
-  const FRAMES = 3;
+  const NAME_HINTS =
+    /(sora|runway|pika|veo|synthetic|deepfake|ai-?gen|generated|kling|hailuo|luma-?ai|seedance|wan2|grok-?imagine|midjourney)/i;
+  // More samples steady out the per-frame average and the temporal-uniformity signal below;
+  // 3 was thin enough that a single unusual frame could swing both.
+  const FRAMES = 5;
 
   function metadataValue(el) {
     const haystack = `${el.currentSrc || el.src || ''} ${el.getAttribute('poster') || ''} ${el.dataset.source || ''}`;

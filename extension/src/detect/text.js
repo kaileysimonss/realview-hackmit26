@@ -2,36 +2,77 @@
   const { ramp, clamp, combine, verdict, topSignals } = self.RealViewSignals;
 
   const STOCK_PHRASES = [
-    'in today\u2019s fast-paced',
+    'in today’s fast-paced',
     'in today\'s fast-paced',
     'it is important to note',
-    'it\u2019s important to note',
+    'it’s important to note',
     'it\'s important to note',
+    'it is worth noting',
+    'it’s worth noting',
     'delve into',
+    'deep dive',
+    'dive into',
     'a testament to',
+    'stands as a testament',
     'tapestry',
     'navigate the complexities',
     'in the ever-evolving',
+    'in the realm of',
+    'in the world of',
     'plays a crucial role',
+    'plays a vital role',
+    'plays a pivotal role',
+    'cannot be overstated',
     'unlock the potential',
     'when it comes to',
     'the landscape of',
+    'dynamic landscape',
     'not only',
     'foster a sense of',
     'holistic approach',
     'seamlessly',
+    'seamless integration',
     'robust framework',
     'in conclusion',
+    'in summary',
+    'to sum up',
     'furthermore',
     'moreover',
     'additionally',
-    'leverage'
+    'leverage',
+    'harness the power',
+    'empower',
+    'elevate',
+    'supercharge',
+    'game-changing',
+    'game changer',
+    'cutting-edge',
+    'trailblazer',
+    'pave the way',
+    'redefine',
+    'revolutionize',
+    'transformative',
+    'multifaceted',
+    'nuanced',
+    'invaluable',
+    'thought-provoking',
+    'sheds light on',
+    'underscores',
+    'boasts an impressive',
+    'at the end of the day',
+    'in this day and age'
   ];
 
   const HUMAN_MARKERS = [
     'i ', 'we ', 'my ', 'honestly', 'lol', 'tbh', 'kinda', 'gonna', 'anyway',
     'weird', 'ugh', 'idk', 'yeah', '?!', '...'
   ];
+
+  // Formal discourse markers opening a sentence are a much stronger tell than the word
+  // appearing anywhere — real writers rarely open three-plus sentences in a short passage
+  // with "Furthermore," / "Moreover," even if they'd use the word mid-sentence sometimes.
+  const TRANSITION_STARTERS =
+    /^(furthermore|moreover|additionally|however|therefore|thus|hence|notably|importantly|ultimately|indeed|in fact|overall|in conclusion|in summary)\b/i;
 
   function sentences(text) {
     return text
@@ -41,7 +82,7 @@
   }
 
   function words(text) {
-    return text.toLowerCase().match(/[a-z\u2019']+/g) || [];
+    return text.toLowerCase().match(/[a-z’']+/g) || [];
   }
 
   function stdev(values) {
@@ -49,6 +90,23 @@
     const mean = values.reduce((a, b) => a + b, 0) / values.length;
     const variance = values.reduce((sum, v) => sum + (v - mean) ** 2, 0) / (values.length - 1);
     return Math.sqrt(variance);
+  }
+
+  // Exact repeated 3-word runs. Real writing repeats function-word trigrams ("in the
+  // middle") but rarely repeats the same substantive phrase multiple times in a short
+  // passage; some model output does, especially templated or lower-temperature generations.
+  function trigramRepetition(wordList) {
+    if (wordList.length < 12) return 0;
+    const counts = new Map();
+    for (let i = 0; i <= wordList.length - 3; i += 1) {
+      const gram = `${wordList[i]} ${wordList[i + 1]} ${wordList[i + 2]}`;
+      counts.set(gram, (counts.get(gram) || 0) + 1);
+    }
+    let repeated = 0;
+    counts.forEach((count) => {
+      if (count > 1) repeated += count - 1;
+    });
+    return repeated / Math.max(1, wordList.length - 2);
   }
 
   function analyze(rawText) {
@@ -70,7 +128,7 @@
     const phraseHits = STOCK_PHRASES.reduce((n, p) => (lower.includes(p) ? n + 1 : n), 0);
     const stockPhrasing = ramp(phraseHits, 0, 4);
 
-    const contractions = (lower.match(/\b\w+['\u2019](t|s|re|ve|ll|d|m)\b/g) || []).length;
+    const contractions = (lower.match(/\b\w+['’](t|s|re|ve|ll|d|m)\b/g) || []).length;
     const contractionRate = contractions / Math.max(1, sentenceList.length);
     const formality = 1 - ramp(contractionRate, 0.05, 0.5);
 
@@ -80,13 +138,23 @@
     const listy = (text.match(/(^|\s)(first|second|third|finally)[,:]/gi) || []).length;
     const scaffolding = ramp(listy, 0, 3);
 
+    const transitionStarts = sentenceList.reduce(
+      (n, s) => (TRANSITION_STARTERS.test(s.trim()) ? n + 1 : n),
+      0
+    );
+    const transitionOveruse = ramp(transitionStarts, 1, 4);
+
+    const repeatedPhrasing = ramp(trigramRepetition(wordList), 0, 0.08);
+
     const { score, signals } = combine([
-      { key: 'Uniform sentence rhythm', weight: 0.28, value: uniformity },
-      { key: 'Low lexical variety', weight: 0.14, value: repetition },
-      { key: 'Model-typical phrasing', weight: 0.24, value: stockPhrasing },
-      { key: 'Consistently formal register', weight: 0.14, value: formality },
-      { key: 'No personal or informal voice', weight: 0.12, value: absentVoice },
-      { key: 'Templated structure', weight: 0.08, value: scaffolding }
+      { key: 'Uniform sentence rhythm', weight: 0.24, value: uniformity },
+      { key: 'Low lexical variety', weight: 0.12, value: repetition },
+      { key: 'Model-typical phrasing', weight: 0.2, value: stockPhrasing },
+      { key: 'Consistently formal register', weight: 0.12, value: formality },
+      { key: 'No personal or informal voice', weight: 0.1, value: absentVoice },
+      { key: 'Templated structure', weight: 0.06, value: scaffolding },
+      { key: 'Formal transitions open multiple sentences', weight: 0.14, value: transitionOveruse },
+      { key: 'Repeated phrasing', weight: 0.1, value: repeatedPhrasing }
     ]);
 
     // Short passages carry less evidence, so pull the score toward uncertainty.

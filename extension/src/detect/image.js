@@ -3,7 +3,8 @@
   const { ramp, clamp, combine, verdict, topSignals } = self.RealViewSignals;
   const { SAMPLE, statsFromImageData } = self.RealViewPixels;
 
-  const NAME_HINTS = /(midjourney|dall-?e|stable-?diffusion|sdxl|firefly|generated|ai-?gen|synthid|flux-?pro|imagen|sora)/i;
+  const NAME_HINTS =
+    /(midjourney|dall-?e|stable-?diffusion|sdxl|firefly|generated|ai-?gen|synthid|flux(-?pro|-?dev|-?schnell)?|imagen|sora|ideogram|leonardo\.?ai|recraft|nova-?canvas|playground-?ai|novelai|craiyon|runway|veo|hailuo|kling|luma-?ai|seedream|qwen-?image|grok-?imagine|nano-?banana)/i;
 
   function makeCanvas() {
     const canvas = document.createElement('canvas');
@@ -39,11 +40,21 @@
 
   function scoreStats(stats, extraSignals = []) {
     const signalSet = [
-      // Diffusion output is unusually clean at the pixel level.
-      { key: 'Low sensor noise', weight: 0.3, value: 1 - ramp(stats.noise, 0.004, 0.02) },
-      { key: 'Over-smooth local detail', weight: 0.16, value: 1 - ramp(stats.edges, 0.03, 0.12) },
-      { key: 'Hyper-saturated palette', weight: 0.16, value: ramp(stats.saturation, 0.3, 0.62) },
-      { key: 'Compressed tonal range', weight: 0.1, value: 1 - ramp(stats.tonalSpread, 0.45, 0.95) },
+      // Diffusion output is unusually clean at the pixel level. Weighted down from before:
+      // modern generators add grain deliberately, and web re-compression adds noise back in
+      // regardless of origin, so this alone increasingly misses newer/re-encoded fakes.
+      { key: 'Low sensor noise', weight: 0.2, value: 1 - ramp(stats.noise, 0.004, 0.02) },
+      { key: 'Over-smooth local detail', weight: 0.14, value: 1 - ramp(stats.edges, 0.03, 0.12) },
+      { key: 'Hyper-saturated palette', weight: 0.14, value: ramp(stats.saturation, 0.3, 0.62) },
+      { key: 'Compressed tonal range', weight: 0.08, value: 1 - ramp(stats.tonalSpread, 0.45, 0.95) },
+      // Real sensor/film grain varies by region (shadows, texture, ISO); a lot of synthetic
+      // or re-added grain lands close to uniform across the whole frame. Survives
+      // re-compression better than the raw noise level does, since it's a relative measure.
+      {
+        key: 'Uniform grain across the frame',
+        weight: 0.2,
+        value: stats.noiseUniformity == null ? undefined : 1 - ramp(stats.noiseUniformity, 0.25, 0.7)
+      },
       ...extraSignals
     ];
     return combine(signalSet);
