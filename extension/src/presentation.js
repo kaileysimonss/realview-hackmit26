@@ -92,11 +92,7 @@
     const badge = buildBadge(el, result, onReveal);
 
     if (isMedia) {
-      const wrap = document.createElement('span');
-      wrap.className = 'rv-wrap';
-      el.parentNode.insertBefore(wrap, el);
-      wrap.appendChild(el);
-      wrap.appendChild(badge);
+      wrapMedia(el).appendChild(badge);
     } else {
       el.parentNode.insertBefore(badge, el);
     }
@@ -104,6 +100,27 @@
     if (result.kind === 'video' && treatment !== 'pause' && wasPlaying) {
       el.play().catch(() => {});
     }
+  }
+
+  // The wrapper anchors the absolutely positioned badge; it must not change the
+  // element's own layout, and repeated scans must not nest new wrappers.
+  function wrapMedia(el) {
+    const existing = el.parentElement;
+    if (existing && existing.classList.contains('rv-wrap')) return existing;
+    const wrap = document.createElement('span');
+    wrap.className = 'rv-wrap';
+    const display = getComputedStyle(el).display;
+    wrap.style.display = display === 'inline' || display === 'inline-block' ? 'inline-block' : 'block';
+    el.parentNode.insertBefore(wrap, el);
+    wrap.appendChild(el);
+    return wrap;
+  }
+
+  function unwrapMedia(wrap) {
+    const parent = wrap.parentNode;
+    if (!parent) return;
+    while (wrap.firstChild) parent.insertBefore(wrap.firstChild, wrap);
+    parent.removeChild(wrap);
   }
 
   function indicator(state) {
@@ -124,5 +141,5 @@
       `RealView scanning · ${state.flagged} flagged of ${state.scanned}`;
   }
 
-  self.RealViewPresentation = { attach, indicator };
+  self.RealViewPresentation = { attach, unwrapMedia, indicator };
 })();
