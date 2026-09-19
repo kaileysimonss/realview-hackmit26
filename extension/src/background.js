@@ -1,5 +1,5 @@
 /* global chrome, importScripts, createImageBitmap, OffscreenCanvas */
-importScripts('detect/pixels.js');
+importScripts('detect/pixels.js', 'settings.js', 'llm.js');
 
 const { SAMPLE, statsFromImageData } = self.RealViewPixels;
 
@@ -51,13 +51,7 @@ async function measure(url) {
 chrome.runtime.onInstalled.addListener(async () => {
   const stored = await chrome.storage.sync.get(null);
   if (!stored || Object.keys(stored).length === 0) {
-    await chrome.storage.sync.set({
-      enabled: true,
-      threshold: 0.6,
-      treatments: { text: 'blur', image: 'blur', video: 'warn' },
-      disabledSites: [],
-      showIndicator: true
-    });
+    await chrome.storage.sync.set(self.RealViewSettings.DEFAULTS);
   }
 });
 
@@ -68,6 +62,17 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
     chrome.action.setBadgeBackgroundColor({ tabId: sender.tab.id, color: '#7c3aed' });
     sendResponse({ ok: true });
     return false;
+  }
+
+  if (message && message.type === 'realview:llm' && sender.tab) {
+    const request = message.request || {};
+    const sources = (request.sources || []).filter(
+      (source) => source.startsWith('data:image/') || fetchable(source, sender)
+    );
+    self.RealViewLLM.call({ ...request, sources })
+      .then((result) => sendResponse(result))
+      .catch((err) => sendResponse({ error: err.message }));
+    return true;
   }
 
   if (message && message.type === 'realview:pixelStats') {

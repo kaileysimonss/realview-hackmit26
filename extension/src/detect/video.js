@@ -116,5 +116,5 @@
     };
   }
 
-  self.RealViewVideoDetector = { analyze };
+  self.RealViewVideoDetector = { analyze, seek, metadataReady };
 })();

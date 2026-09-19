@@ -40,6 +40,32 @@
     </section>
 
     <section>
+      <h2>AI model analysis</h2>
+      <label class="switch small">
+        <input type="checkbox" id="llm-enabled" />
+        <span>Judge content with a language model</span>
+      </label>
+      <div class="row">
+        <label for="llm-provider">Provider</label>
+        <select id="llm-provider"></select>
+      </div>
+      <div class="row">
+        <label for="llm-model">Model</label>
+        <input type="text" id="llm-model" placeholder="default" />
+      </div>
+      <div class="row">
+        <label for="llm-key">API key</label>
+        <input type="password" id="llm-key" placeholder="sk-…" autocomplete="off" />
+      </div>
+      <p class="hint" id="llm-status">Off — scoring with on-device heuristics.</p>
+      <p class="caveat">
+        With this on, visible passages and downscaled image or video frames are sent to the
+        provider you choose. The key is stored on this device only. Without a key, RealView
+        falls back to the local heuristics.
+      </p>
+    </section>
+
+    <section>
       <h2>This site</h2>
       <div class="row">
         <span id="hostname">—</span>
@@ -53,10 +79,11 @@
 
     <footer>
       <p>
-        RealView analyzes only visible page text, images, and video frames, on your device.
-        Password fields, form inputs, and editors are skipped. Nothing is uploaded or stored
-        beyond the current page view; images hosted on another domain are refetched from that
-        same host, without credentials, so their pixels can be measured.
+        RealView analyzes only visible page text, images, and video frames — on your device
+        unless you turn on model analysis above. Password fields, form inputs, and editors are
+        skipped. Nothing is stored beyond the current page view; images hosted on another
+        domain are refetched from that same host, without credentials, so their pixels can be
+        measured.
       </p>
       <p class="caveat">
         Detection reports signals and likelihood, never proof. Every treatment is reversible

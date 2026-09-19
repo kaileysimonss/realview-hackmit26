@@ -58,6 +58,21 @@ button {
   cursor: pointer;
 }
 
+input[type='text'],
+input[type='password'] {
+  font: inherit;
+  width: 160px;
+  padding: 4px 8px;
+  border: 1px solid #d1d5db;
+  border-radius: 8px;
+  background: #ffffff;
+}
+
+.caveat {
+  margin: 4px 0 0;
+  font-size: 11px;
+}
+
 .switch {
   display: inline-flex;
   align-items: center;

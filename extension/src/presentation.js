@@ -24,6 +24,12 @@
     full: 'Detection signals only. This is an estimate, not proof that the content was AI-generated.'
   };
 
+  const POSTER_ONLY = 'Limited analysis: the video frames could not be read, so the model saw the poster image.';
+
+  const MODEL_CAVEAT =
+    'Judged by a language model you configured, which was sent this content. Models are ' +
+    'confidently wrong sometimes; this is an estimate, not proof.';
+
   function buildBadge(el, result, onReveal) {
     const badge = document.createElement('div');
     badge.className = `rv-badge ${RISK_CLASS(result.score)}`;
@@ -57,7 +63,10 @@
 
     const caveat = document.createElement('p');
     caveat.className = 'rv-caveat';
-    caveat.textContent = CAVEAT[result.limited || 'full'] || CAVEAT.metadata;
+    caveat.textContent =
+      result.source === 'llm'
+        ? [result.limited === 'poster' ? POSTER_ONLY : '', MODEL_CAVEAT].filter(Boolean).join(' ')
+        : CAVEAT[result.limited || 'full'] || CAVEAT.metadata;
 
     const reveal = document.createElement('button');
     reveal.type = 'button';
@@ -233,6 +242,9 @@
     }
     node.querySelector('.rv-indicator-text').textContent =
       `RealView scanning · ${state.flagged} flagged of ${state.scanned}`;
+    node.querySelector('.rv-indicator-note').textContent = state.remote
+      ? 'Visible page content only · sent to your AI provider'
+      : 'Visible page content only · analyzed locally';
   }
 
   self.RealViewPresentation = { attach, unwrapMedia, indicator, scheduleFloatingUpdate };
