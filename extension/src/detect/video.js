@@ -7,6 +7,22 @@
   // More samples steady out the per-frame average and the temporal-uniformity signal below;
   // 3 was thin enough that a single unusual frame could swing both.
   const FRAMES = 5;
+  // Matches image.js's FLAT_GRAPHIC_COLOR_LIMIT — see there for why.
+  const FLAT_GRAPHIC_COLOR_LIMIT = 24;
+
+  // Same corrected direction as image.js's DEFAULT_THRESHOLDS (see that file for the real-data
+  // validation behind it — real photos vs real AI-generated images, not assumed priors), with
+  // the interval pulled ~15% toward the midpoint so video is modestly more sensitive than
+  // image's own thresholds. That specific 15% pull is NOT independently validated against real
+  // video (no labeled real-vs-AI video dataset was available), only reasoned from the same
+  // physical signals — treat it as a starting point more than a measured value.
+  const VIDEO_THRESHOLDS = {
+    noise: [0.0189, 0.0281],
+    edges: [0.0818, 0.1188],
+    saturation: [0.274, 0.349],
+    tonalSpread: [0.814, 0.851],
+    noiseUniformity: [0.408, 0.756]
+  };
 
   function metadataValue(el) {
     const haystack = `${el.currentSrc || el.src || ''} ${el.getAttribute('poster') || ''} ${el.dataset.source || ''}`;
@@ -75,8 +91,11 @@
       // in the worker, so the poster image is the only pixel evidence available.
       const poster = await remotePixelStats(el.poster);
       if (poster) {
+        // Same double-damping fix as the main path below — this value is already a
+        // combine() output, about to go through combine() again.
+        const posterScore = clamp(scoreStats(poster, [], VIDEO_THRESHOLDS).score ** 0.7);
         const { score, signals } = combine([
-          { key: 'Poster-frame synthetic signals', weight: 0.6, value: scoreStats(poster).score },
+          { key: 'Poster-frame synthetic signals', weight: 0.6, value: posterScore },
           ...meta
         ]);
         return {
@@ -97,16 +116,44 @@
       };
     }
 
-    const frameScores = frames.map((stats) => scoreStats(stats).score);
+    // Same flat-graphic gate as image.js (see there for why) — a screen recording of a slide
+    // deck or an animated logo would otherwise max out the saturation/grain signals for
+    // reasons that have nothing to do with AI generation. Frames that are flat graphics are
+    // excluded from scoring entirely rather than scored and discounted.
+    const photographicFrames = frames.filter((stats) => stats.colorCount >= FLAT_GRAPHIC_COLOR_LIMIT);
+    if (!photographicFrames.length) {
+      const { score, signals } = combine(meta);
+      return {
+        kind: 'video',
+        score: clamp(score),
+        verdict: verdict(score),
+        signals: topSignals(signals).map((s) => s.key),
+        limited: 'flat-graphic'
+      };
+    }
+
+    const frameScores = photographicFrames.map((stats) => scoreStats(stats, [], VIDEO_THRESHOLDS).score);
     const mean = frameScores.reduce((a, b) => a + b, 0) / frameScores.length;
 
     // Generated clips tend to look uniformly "clean" frame to frame.
     const spread = Math.max(...frameScores) - Math.min(...frameScores);
-    const temporalUniformity = 1 - ramp(spread, 0.02, 0.25);
+    const temporalUniformity = 1 - ramp(spread, 0.02, 0.3);
+
+    // mean/temporalUniformity are each already the *output* of a noisy-OR combine() (mean is
+    // an average of per-frame combine() results), so feeding them through combine() again
+    // below double-applies the sensitivity dampening built into that formula. The ^0.7
+    // curve compensates — pushes an already-strong aggregate score back up before it goes
+    // through a second round of damping — without touching combine() itself, which is still
+    // right for combining raw per-observation signals within a single frame.
+    const boostedMean = clamp(mean ** 0.7);
+    const boostedTemporal = clamp(temporalUniformity ** 0.7);
 
     const { score, signals } = combine([
-      { key: 'Frame-level synthetic signals', weight: 0.6, value: mean },
-      { key: 'Unnaturally consistent frames', weight: 0.15, value: temporalUniformity },
+      { key: 'Frame-level synthetic signals', weight: 0.6, value: boostedMean },
+      // Bumped up from 0.15: this is video's one genuinely unique signal (image has no
+      // temporal dimension at all), so it was underweighted relative to how much
+      // independent evidence it actually carries.
+      { key: 'Unnaturally consistent frames', weight: 0.3, value: boostedTemporal },
       ...meta
     ]);
 

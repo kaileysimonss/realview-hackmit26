@@ -74,6 +74,11 @@
   const TRANSITION_STARTERS =
     /^(furthermore|moreover|additionally|however|therefore|thus|hence|notably|importantly|ultimately|indeed|in fact|overall|in conclusion|in summary)\b/i;
 
+  // Rule-of-three listing ("fast, reliable, and efficient") is a real rhetorical device human
+  // writers use too, so a single hit barely counts — it's specifically the OVERUSE of the
+  // pattern (several in one short passage) that's a current, strong LLM tell.
+  const TRIAD_PATTERN = /\b[\w-]+,\s+[\w-]+,?\s+and\s+[\w-]+\b/gi;
+
   function sentences(text) {
     return text
       .split(/(?<=[.!?])\s+/)
@@ -146,15 +151,26 @@
 
     const repeatedPhrasing = ramp(trigramRepetition(wordList), 0, 0.08);
 
+    // Modern LLMs (Claude/GPT-4-class) lean heavily on em dashes for asides far more than
+    // typical human prose — measured per 100 words so it's comparable across passage lengths.
+    const emDashes = (text.match(/[—]|--/g) || []).length;
+    const emDashRate = emDashes / Math.max(1, wordList.length / 100);
+    const emDashOveruse = ramp(emDashRate, 1, 5);
+
+    const triadHits = (text.match(TRIAD_PATTERN) || []).length;
+    const triadOveruse = ramp(triadHits, 1, 4);
+
     const { score, signals } = combine([
-      { key: 'Uniform sentence rhythm', weight: 0.24, value: uniformity },
-      { key: 'Low lexical variety', weight: 0.12, value: repetition },
-      { key: 'Model-typical phrasing', weight: 0.2, value: stockPhrasing },
-      { key: 'Consistently formal register', weight: 0.12, value: formality },
-      { key: 'No personal or informal voice', weight: 0.1, value: absentVoice },
-      { key: 'Templated structure', weight: 0.06, value: scaffolding },
+      { key: 'Uniform sentence rhythm', weight: 0.22, value: uniformity },
+      { key: 'Low lexical variety', weight: 0.08, value: repetition },
+      { key: 'Model-typical phrasing', weight: 0.18, value: stockPhrasing },
+      { key: 'Consistently formal register', weight: 0.1, value: formality },
+      { key: 'No personal or informal voice', weight: 0.08, value: absentVoice },
+      { key: 'Templated structure', weight: 0.04, value: scaffolding },
       { key: 'Formal transitions open multiple sentences', weight: 0.14, value: transitionOveruse },
-      { key: 'Repeated phrasing', weight: 0.1, value: repeatedPhrasing }
+      { key: 'Repeated phrasing', weight: 0.08, value: repeatedPhrasing },
+      { key: 'Heavy em dash use', weight: 0.16, value: emDashOveruse },
+      { key: 'Rule-of-three listing', weight: 0.12, value: triadOveruse }
     ]);
 
     // Short passages carry less evidence, so pull the score toward uncertainty.

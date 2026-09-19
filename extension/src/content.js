@@ -71,7 +71,7 @@
       if (!el.isConnected) return;
       const counts = byKind[result.kind];
       if (counts) counts.scanned += 1;
-      if (result.score < settings.threshold) return;
+      if (result.score < settings.thresholds[result.kind]) return;
       flagged += 1;
       if (counts) counts.flagged += 1;
       if (result.score > maxScore) maxScore = result.score;
@@ -98,7 +98,7 @@
       flaggedElements,
       settings,
       hostname: location.hostname,
-      onThresholdChange: (value) => Settings.save({ threshold: value }),
+      onThresholdChange: (thresholds) => Settings.save({ thresholds }),
       onTreatmentChange: (kind, value) =>
         Settings.save({ treatments: { ...settings.treatments, [kind]: value } }),
       onToggleSite: () => {

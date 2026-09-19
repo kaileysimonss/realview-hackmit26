@@ -290,13 +290,32 @@
   color: #9ca3af;
 }
 
-.rv-quick-threshold-value {
-  color: #f9fafb;
-  font-weight: 600;
+.rv-preset-group {
+  display: flex;
+  gap: 6px;
 }
 
-.rv-quick-threshold {
-  width: 100%;
+.rv-preset-btn {
+  flex: 1;
+  font: inherit;
+  font-weight: 600;
+  border: 1px solid rgba(255, 255, 255, 0.2);
+  border-radius: 8px;
+  background: transparent;
+  color: #f9fafb;
+  padding: 4px 6px;
+  cursor: pointer;
+}
+
+.rv-preset-btn.active {
+  border-color: #7c3aed;
+  background: #7c3aed;
+}
+
+.rv-threshold-hint {
+  margin: 0;
+  color: #9ca3af;
+  font-size: 11px;
 }
 
 .rv-quick-treatments {

@@ -4,9 +4,16 @@
   const TILE_GRID = 4; // 4x4 tiles of 24x24px each (96 / 4)
   const TILE_SIZE = SAMPLE / TILE_GRID;
 
+  // 4 bits/channel = 16 levels = 4096 possible buckets. Coarse enough to tolerate JPEG
+  // compression noise without splitting one flat color across many buckets, fine enough that
+  // a real photo's gradients/noise still land across hundreds of them.
+  const COLOR_BUCKETS = 1 << 12;
+
   function statsFromImageData(data, width, height) {
     const luma = new Float32Array(SAMPLE * SAMPLE);
     let saturationSum = 0;
+    const colorSeen = new Uint8Array(COLOR_BUCKETS);
+    let uniqueColors = 0;
     for (let i = 0; i < SAMPLE * SAMPLE; i += 1) {
       const r = data[i * 4] / 255;
       const g = data[i * 4 + 1] / 255;
@@ -15,6 +22,12 @@
       const max = Math.max(r, g, b);
       const min = Math.min(r, g, b);
       saturationSum += max === 0 ? 0 : (max - min) / max;
+
+      const bucket = ((data[i * 4] >> 4) << 8) | ((data[i * 4 + 1] >> 4) << 4) | (data[i * 4 + 2] >> 4);
+      if (!colorSeen[bucket]) {
+        colorSeen[bucket] = 1;
+        uniqueColors += 1;
+      }
     }
 
     // Sensor noise: mean absolute residual against a 3x3 box blur. Also bucketed per tile
@@ -74,6 +87,11 @@
       saturation: saturationSum / (SAMPLE * SAMPLE),
       tonalSpread: occupied,
       noiseUniformity,
+      // Flat graphics (logos, icons, illustrations) use a small handful of colors; photos —
+      // real or AI-generated — have gradients/noise/compression artifacts that spread across
+      // hundreds of distinct values even after quantization. Used to recognize "this isn't a
+      // photo at all" before running photographic-forensics signals that don't apply to it.
+      colorCount: uniqueColors,
       width,
       height
     };

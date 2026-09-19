@@ -16,11 +16,10 @@
 
     <section>
       <div class="row">
-        <label for="threshold">Confidence threshold</label>
-        <output id="threshold-value">60%</output>
+        <label>AI tolerance</label>
       </div>
-      <input type="range" id="threshold" min="0.2" max="0.95" step="0.05" />
-      <p class="hint">Higher = cautious labeling. Lower = aggressive filtering.</p>
+      <div class="preset-group" id="threshold-presets" role="radiogroup" aria-label="AI tolerance"></div>
+      <p class="hint" id="threshold-hint">Recommended default</p>
     </section>
 
     <section>

@@ -30,6 +30,8 @@
       'Limited analysis: pixel data was unavailable, so this is based on metadata only. Detection signals are not proof.',
     poster:
       'Limited analysis: the video frames could not be read, so this scores the poster image instead. Detection signals are not proof.',
+    'flat-graphic':
+      'Limited analysis: this looks like a flat graphic (logo, icon, or illustration) rather than a photo, so photo-forensics signals were skipped as unreliable for this kind of image. Based on metadata only.',
     full: 'Detection signals only. This is an estimate, not proof that the content was AI-generated.'
   };
 
@@ -334,22 +336,29 @@
 
     const thresholdLabel = document.createElement('label');
     thresholdLabel.className = 'rv-quick-label';
-    thresholdLabel.innerHTML = 'Sensitivity <span class="rv-quick-threshold-value"></span>';
-    const threshold = document.createElement('input');
-    threshold.type = 'range';
-    threshold.className = 'rv-quick-threshold';
-    threshold.min = '0';
-    threshold.max = '1';
-    threshold.step = '0.05';
-    threshold.addEventListener('input', () => {
-      thresholdLabel.querySelector('.rv-quick-threshold-value').textContent =
-        `${Math.round(Number(threshold.value) * 100)}%`;
+    thresholdLabel.textContent = 'AI tolerance';
+
+    const thresholdPresets = document.createElement('div');
+    thresholdPresets.className = 'rv-preset-group';
+    thresholdPresets.setAttribute('role', 'radiogroup');
+    thresholdPresets.setAttribute('aria-label', 'AI tolerance');
+    Settings.THRESHOLD_PRESETS.forEach((preset) => {
+      const button = document.createElement('button');
+      button.type = 'button';
+      button.className = 'rv-preset-btn';
+      button.dataset.presetId = preset.id;
+      button.textContent = preset.label;
+      button.setAttribute('role', 'radio');
+      button.addEventListener('click', () => {
+        if (currentState && currentState.onThresholdChange) {
+          currentState.onThresholdChange(preset.thresholds);
+        }
+      });
+      thresholdPresets.appendChild(button);
     });
-    threshold.addEventListener('change', () => {
-      if (currentState && currentState.onThresholdChange) {
-        currentState.onThresholdChange(Number(threshold.value));
-      }
-    });
+
+    const thresholdHint = document.createElement('p');
+    thresholdHint.className = 'rv-threshold-hint';
 
     const treatmentRow = document.createElement('div');
     treatmentRow.className = 'rv-quick-treatments';
@@ -368,7 +377,7 @@
       if (currentState && currentState.onToggleSite) currentState.onToggleSite();
     });
 
-    actions.append(thresholdLabel, threshold, treatmentRow, siteToggle);
+    actions.append(thresholdLabel, thresholdPresets, thresholdHint, treatmentRow, siteToggle);
 
     const note = document.createElement('p');
     note.className = 'rv-indicator-note';
@@ -415,10 +424,14 @@
 
     const settings = state.settings;
     if (settings) {
-      const thresholdInput = node.querySelector('.rv-quick-threshold');
-      const thresholdValue = node.querySelector('.rv-quick-threshold-value');
-      if (document.activeElement !== thresholdInput) thresholdInput.value = settings.threshold;
-      thresholdValue.textContent = `${Math.round(settings.threshold * 100)}%`;
+      const activePreset = Settings.closestPreset(settings.thresholds);
+      node.querySelectorAll('.rv-preset-btn').forEach((button) => {
+        const active = button.dataset.presetId === activePreset.id;
+        button.classList.toggle('active', active);
+        button.setAttribute('aria-checked', String(active));
+      });
+      const thresholdHintNode = node.querySelector('.rv-threshold-hint');
+      if (thresholdHintNode) thresholdHintNode.textContent = activePreset.hint;
 
       KINDS.forEach((kind) => {
         const select = node.querySelector(`.rv-quick-treatment[data-kind="${kind}"]`);

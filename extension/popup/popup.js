@@ -5,8 +5,8 @@
 
   const els = {
     enabled: document.getElementById('enabled'),
-    threshold: document.getElementById('threshold'),
-    thresholdValue: document.getElementById('threshold-value'),
+    thresholdPresets: document.getElementById('threshold-presets'),
+    thresholdHint: document.getElementById('threshold-hint'),
     text: document.getElementById('text-treatment'),
     image: document.getElementById('image-treatment'),
     video: document.getElementById('video-treatment'),
@@ -14,6 +14,17 @@
     siteToggle: document.getElementById('site-toggle'),
     indicator: document.getElementById('indicator')
   };
+
+  Settings.THRESHOLD_PRESETS.forEach((preset) => {
+    const button = document.createElement('button');
+    button.type = 'button';
+    button.className = 'preset-btn';
+    button.dataset.presetId = preset.id;
+    button.textContent = preset.label;
+    button.setAttribute('role', 'radio');
+    button.addEventListener('click', () => update({ thresholds: preset.thresholds }));
+    els.thresholdPresets.appendChild(button);
+  });
 
   function fillOptions(select, options) {
     select.innerHTML = '';
@@ -42,8 +53,13 @@
 
   function render() {
     els.enabled.checked = settings.enabled;
-    els.threshold.value = settings.threshold;
-    els.thresholdValue.textContent = `${Math.round(settings.threshold * 100)}%`;
+    const activePreset = Settings.closestPreset(settings.thresholds);
+    [...els.thresholdPresets.children].forEach((button) => {
+      const active = button.dataset.presetId === activePreset.id;
+      button.classList.toggle('active', active);
+      button.setAttribute('aria-checked', String(active));
+    });
+    els.thresholdHint.textContent = activePreset.hint;
     els.text.value = settings.treatments.text;
     els.image.value = settings.treatments.image;
     els.video.value = settings.treatments.video;
@@ -61,10 +77,6 @@
 
   els.enabled.addEventListener('change', () => update({ enabled: els.enabled.checked }));
   els.indicator.addEventListener('change', () => update({ showIndicator: els.indicator.checked }));
-  els.threshold.addEventListener('input', () => {
-    els.thresholdValue.textContent = `${Math.round(Number(els.threshold.value) * 100)}%`;
-  });
-  els.threshold.addEventListener('change', () => update({ threshold: Number(els.threshold.value) }));
 
   ['text', 'image', 'video'].forEach((kind) => {
     els[kind].addEventListener('change', () =>

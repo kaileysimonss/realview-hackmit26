@@ -44,8 +44,27 @@ section {
   margin-bottom: 6px;
 }
 
-input[type='range'] {
-  width: 100%;
+.preset-group {
+  display: flex;
+  gap: 6px;
+}
+
+.preset-btn {
+  flex: 1;
+  font: inherit;
+  font-weight: 600;
+  padding: 6px 4px;
+  border: 1px solid #d1d5db;
+  border-radius: 8px;
+  background: #f9fafb;
+  color: #374151;
+  cursor: pointer;
+}
+
+.preset-btn.active {
+  border-color: #7c3aed;
+  background: #7c3aed;
+  color: #ffffff;
 }
 
 select,
