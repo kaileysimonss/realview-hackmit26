@@ -55,7 +55,8 @@
       <p>
         RealView analyzes only visible page text, images, and video frames, on your device.
         Password fields, form inputs, and editors are skipped. Nothing is uploaded or stored
-        beyond the current page view.
+        beyond the current page view; images hosted on another domain are refetched from that
+        same host, without credentials, so their pixels can be measured.
       </p>
       <p class="caveat">
         Detection reports signals and likelihood, never proof. Every treatment is reversible

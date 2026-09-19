@@ -1,8 +1,9 @@
+/* global chrome */
 (() => {
   const { ramp, clamp, combine, verdict, topSignals } = self.RealViewSignals;
+  const { SAMPLE, statsFromImageData } = self.RealViewPixels;
 
   const NAME_HINTS = /(midjourney|dall-?e|stable-?diffusion|sdxl|firefly|generated|ai-?gen|synthid|flux-?pro|imagen|sora)/i;
-  const SAMPLE = 96;
 
   function makeCanvas() {
     const canvas = document.createElement('canvas');
@@ -19,56 +20,21 @@
     try {
       data = ctx.getImageData(0, 0, SAMPLE, SAMPLE).data;
     } catch (err) {
-      return null; // cross-origin pixels are unreadable; fall back to metadata signals
+      return null; // canvas is tainted; the service worker refetches the bytes instead
     }
+    return statsFromImageData(data, width, height);
+  }
 
-    const luma = new Float32Array(SAMPLE * SAMPLE);
-    let saturationSum = 0;
-    for (let i = 0; i < SAMPLE * SAMPLE; i += 1) {
-      const r = data[i * 4] / 255;
-      const g = data[i * 4 + 1] / 255;
-      const b = data[i * 4 + 2] / 255;
-      luma[i] = 0.2126 * r + 0.7152 * g + 0.0722 * b;
-      const max = Math.max(r, g, b);
-      const min = Math.min(r, g, b);
-      saturationSum += max === 0 ? 0 : (max - min) / max;
+  // Cross-origin media taints the page canvas, so the service worker (which has
+  // host permissions and its own origin) refetches the bytes and measures them.
+  async function remotePixelStats(url) {
+    if (!url || url.startsWith('data:') || url.startsWith('blob:')) return null;
+    try {
+      const response = await chrome.runtime.sendMessage({ type: 'realview:pixelStats', url });
+      return response && response.stats ? response.stats : null;
+    } catch (err) {
+      return null;
     }
-
-    // Sensor noise: mean absolute residual against a 3x3 box blur.
-    let residualSum = 0;
-    let edgeSum = 0;
-    let samples = 0;
-    for (let y = 1; y < SAMPLE - 1; y += 1) {
-      for (let x = 1; x < SAMPLE - 1; x += 1) {
-        const idx = y * SAMPLE + x;
-        let neighborhood = 0;
-        for (let dy = -1; dy <= 1; dy += 1) {
-          for (let dx = -1; dx <= 1; dx += 1) {
-            neighborhood += luma[(y + dy) * SAMPLE + (x + dx)];
-          }
-        }
-        residualSum += Math.abs(luma[idx] - neighborhood / 9);
-        const gx = luma[idx + 1] - luma[idx - 1];
-        const gy = luma[idx + SAMPLE] - luma[idx - SAMPLE];
-        edgeSum += Math.hypot(gx, gy);
-        samples += 1;
-      }
-    }
-
-    const histogram = new Array(32).fill(0);
-    for (let i = 0; i < luma.length; i += 1) {
-      histogram[Math.min(31, Math.floor(luma[i] * 32))] += 1;
-    }
-    const occupied = histogram.filter((n) => n > luma.length * 0.002).length / 32;
-
-    return {
-      noise: residualSum / samples,
-      edges: edgeSum / samples,
-      saturation: saturationSum / (SAMPLE * SAMPLE),
-      tonalSpread: occupied,
-      width,
-      height
-    };
   }
 
   function scoreStats(stats, extraSignals = []) {
@@ -105,7 +71,8 @@
     if (el.naturalWidth < 80 || el.naturalHeight < 80) return null;
 
     const meta = metadataSignals(el);
-    const stats = pixelStats(el, el.naturalWidth, el.naturalHeight);
+    const local = pixelStats(el, el.naturalWidth, el.naturalHeight);
+    const stats = local || (await remotePixelStats(el.currentSrc || el.src));
     if (!stats) {
       const { score, signals } = combine([
         ...meta,
@@ -129,5 +96,5 @@
     };
   }
 
-  self.RealViewImageDetector = { analyze, pixelStats, scoreStats };
+  self.RealViewImageDetector = { analyze, pixelStats, remotePixelStats, scoreStats };
 })();

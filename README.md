@@ -41,6 +41,11 @@ All analysis runs on-device; nothing is uploaded.
 | Images | sensor-noise residual, local edge energy, saturation, tonal spread, generator names in filename/alt |
 | Video | the image signals over sampled frames, plus frame-to-frame consistency |
 
+Media served from another domain taints the page canvas, so the service worker refetches
+those bytes (credentials omitted) and measures them off-screen; results are cached per URL.
+Cross-origin video frames still cannot be decoded there, so such videos fall back to their
+poster image, then to metadata, and the badge says *Limited analysis*.
+
 Scores map to *High likelihood of AI generation* (≥0.8), *Likely AI-generated* (≥0.6),
 *Possible synthetic content* (≥0.4). Anything below the user's threshold is left alone.
 
@@ -57,7 +62,9 @@ threshold.
 
 ## Privacy
 
-- Only visible page content is analyzed, on-device.
+- Only visible page content is analyzed, on-device. Nothing is sent to any RealView service;
+  the one network request is the extension refetching a cross-origin image from the host that
+  already served it to the page, without credentials.
 - Inputs, textareas, selects, forms, and contenteditable regions are never read, and any
   element (or ancestor) marked `data-realview-exclude` is skipped.
 - A scanning indicator shows when RealView is active; scanning can be disabled per site.
