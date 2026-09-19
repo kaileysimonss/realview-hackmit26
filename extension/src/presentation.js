@@ -16,6 +16,14 @@
     return 'rv-risk-moderate';
   };
 
+  const CAVEAT = {
+    metadata:
+      'Limited analysis: pixel data was unavailable, so this is based on metadata only. Detection signals are not proof.',
+    poster:
+      'Limited analysis: the video frames could not be read, so this scores the poster image instead. Detection signals are not proof.',
+    full: 'Detection signals only. This is an estimate, not proof that the content was AI-generated.'
+  };
+
   function buildBadge(el, result, onReveal) {
     const badge = document.createElement('div');
     badge.className = `rv-badge ${RISK_CLASS(result.score)}`;
@@ -49,15 +57,15 @@
 
     const caveat = document.createElement('p');
     caveat.className = 'rv-caveat';
-    caveat.textContent = result.limited
-      ? 'Limited analysis: pixel data was unavailable, so this is based on metadata only. Detection signals are not proof.'
-      : 'Detection signals only. This is an estimate, not proof that the content was AI-generated.';
+    caveat.textContent = CAVEAT[result.limited || 'full'] || CAVEAT.metadata;
 
     const reveal = document.createElement('button');
     reveal.type = 'button';
     reveal.className = 'rv-reveal';
     reveal.textContent = 'Reveal temporarily';
     reveal.addEventListener('click', (event) => {
+      // Media is often wrapped in a link; the badge must never navigate.
+      event.preventDefault();
       event.stopPropagation();
       const revealed = el.classList.toggle('rv-revealed');
       reveal.textContent = revealed ? 'Hide again' : 'Reveal temporarily';
@@ -66,6 +74,7 @@
 
     details.append(signalList, caveat, reveal);
     summary.addEventListener('click', (event) => {
+      event.preventDefault();
       event.stopPropagation();
       const open = badge.classList.toggle('rv-open');
       summary.setAttribute('aria-expanded', String(open));
@@ -98,7 +107,9 @@
 
     const badge = buildBadge(el, result, onReveal);
 
-    if (isMedia) {
+    if (isMedia && isOutOfFlow(el)) {
+      floatBadge(el, badge);
+    } else if (isMedia) {
       wrapMedia(el).appendChild(badge);
     } else {
       el.parentNode.insertBefore(badge, el);
@@ -107,6 +118,73 @@
     if (result.kind === 'video' && treatment !== 'pause' && wasPlaying) {
       el.play().catch(() => {});
     }
+  }
+
+  // Wrapping an out-of-flow element makes the wrapper its containing block and
+  // collapses it to 0x0, so those badges float over the page instead.
+  function isOutOfFlow(el) {
+    const position = getComputedStyle(el).position;
+    return position === 'absolute' || position === 'fixed';
+  }
+
+  const floated = new Map();
+  let frameRequested = false;
+  let layoutWatchers = null;
+
+  function placeFloating() {
+    frameRequested = false;
+    floated.forEach((el, badge) => {
+      if (!badge.isConnected || !el.isConnected) {
+        badge.remove();
+        floated.delete(badge);
+        if (layoutWatchers) layoutWatchers.resize.unobserve(el);
+        return;
+      }
+      // Only write when the value actually changes: the mutation observer below
+      // watches style attributes, and unconditional writes would loop forever.
+      const rect = el.getBoundingClientRect();
+      const next = {
+        visibility: rect.width && rect.height ? '' : 'hidden',
+        top: `${rect.top + 8}px`,
+        left: `${rect.left + 8}px`
+      };
+      Object.entries(next).forEach(([property, value]) => {
+        if (badge.style[property] !== value) badge.style[property] = value;
+      });
+    });
+  }
+
+  function scheduleFloatingUpdate() {
+    if (frameRequested) return;
+    frameRequested = true;
+    requestAnimationFrame(placeFloating);
+  }
+
+  // Out-of-flow media also moves without scroll or resize events — collapsing
+  // banners, carousels, late-loading content — so watch size and DOM changes too.
+  function startLayoutWatchers() {
+    if (layoutWatchers) return layoutWatchers;
+    window.addEventListener('scroll', scheduleFloatingUpdate, { passive: true, capture: true });
+    window.addEventListener('resize', scheduleFloatingUpdate, { passive: true });
+    const resize = new ResizeObserver(scheduleFloatingUpdate);
+    resize.observe(document.documentElement);
+    const mutation = new MutationObserver(scheduleFloatingUpdate);
+    mutation.observe(document.documentElement, {
+      childList: true,
+      subtree: true,
+      attributes: true,
+      attributeFilter: ['style', 'class', 'hidden']
+    });
+    layoutWatchers = { resize, mutation };
+    return layoutWatchers;
+  }
+
+  function floatBadge(el, badge) {
+    badge.classList.add('rv-badge-floating');
+    document.body.appendChild(badge);
+    floated.set(badge, el);
+    startLayoutWatchers().resize.observe(el);
+    placeFloating();
   }
 
   // The wrapper anchors the absolutely positioned badge; it must not change the
@@ -148,5 +226,5 @@
       `RealView scanning · ${state.flagged} flagged of ${state.scanned}`;
   }
 
-  self.RealViewPresentation = { attach, unwrapMedia, indicator };
+  self.RealViewPresentation = { attach, unwrapMedia, indicator, scheduleFloatingUpdate };
 })();

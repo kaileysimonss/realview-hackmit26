@@ -83,7 +83,7 @@
         score: clamp(score),
         verdict: verdict(score),
         signals: topSignals(signals).map((s) => s.key),
-        limited: true
+        limited: 'metadata'
       };
     }
 

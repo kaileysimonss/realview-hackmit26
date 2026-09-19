@@ -53,6 +53,11 @@
   margin: 0;
 }
 
+.rv-badge-floating {
+  position: fixed;
+  margin: 0;
+}
+
 .rv-badge-summary {
   display: inline-flex;
   align-items: center;

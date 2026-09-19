@@ -45,7 +45,7 @@
         score,
         verdict: verdict(score),
         signals: topSignals(signals).map((s) => s.key),
-        limited: true
+        limited: 'metadata'
       };
     }
 
@@ -81,7 +81,7 @@
           score: clamp(score),
           verdict: verdict(score),
           signals: topSignals(signals).map((s) => s.key),
-          limited: true
+          limited: 'poster'
         };
       }
       const { score, signals } = combine([...meta, { key: 'Frames unreadable (cross-origin)', weight: 0.05, value: 0.2 }]);
@@ -90,7 +90,7 @@
         score,
         verdict: verdict(score),
         signals: topSignals(signals).map((s) => s.key),
-        limited: true
+        limited: 'metadata'
       };
     }
 
