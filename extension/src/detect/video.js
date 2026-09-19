@@ -1,6 +1,6 @@
 (() => {
   const { clamp, ramp, combine, verdict, topSignals } = self.RealViewSignals;
-  const { pixelStats, scoreStats } = self.RealViewImageDetector;
+  const { pixelStats, remotePixelStats, scoreStats } = self.RealViewImageDetector;
 
   const NAME_HINTS = /(sora|runway|pika|veo|synthetic|deepfake|ai-?gen|generated)/i;
   const FRAMES = 3;
@@ -68,6 +68,22 @@
     if (!wasPaused) el.play().catch(() => {});
 
     if (!frames.length) {
+      // Cross-origin frames taint the canvas and a video stream cannot be decoded
+      // in the worker, so the poster image is the only pixel evidence available.
+      const poster = await remotePixelStats(el.poster);
+      if (poster) {
+        const { score, signals } = combine([
+          { key: 'Poster-frame synthetic signals', weight: 0.6, value: scoreStats(poster).score },
+          ...meta
+        ]);
+        return {
+          kind: 'video',
+          score: clamp(score),
+          verdict: verdict(score),
+          signals: topSignals(signals).map((s) => s.key),
+          limited: true
+        };
+      }
       const { score, signals } = combine([...meta, { key: 'Frames unreadable (cross-origin)', weight: 0.05, value: 0.2 }]);
       return {
         kind: 'video',
