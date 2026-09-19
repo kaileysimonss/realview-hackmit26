@@ -122,6 +122,7 @@
 
   const floated = new Map();
   let frameRequested = false;
+  let layoutWatchers = null;
 
   function placeFloating() {
     frameRequested = false;
@@ -129,12 +130,20 @@
       if (!badge.isConnected || !el.isConnected) {
         badge.remove();
         floated.delete(badge);
+        if (layoutWatchers) layoutWatchers.resize.unobserve(el);
         return;
       }
+      // Only write when the value actually changes: the mutation observer below
+      // watches style attributes, and unconditional writes would loop forever.
       const rect = el.getBoundingClientRect();
-      badge.style.visibility = rect.width && rect.height ? '' : 'hidden';
-      badge.style.top = `${rect.top + 8}px`;
-      badge.style.left = `${rect.left + 8}px`;
+      const next = {
+        visibility: rect.width && rect.height ? '' : 'hidden',
+        top: `${rect.top + 8}px`,
+        left: `${rect.left + 8}px`
+      };
+      Object.entries(next).forEach(([property, value]) => {
+        if (badge.style[property] !== value) badge.style[property] = value;
+      });
     });
   }
 
@@ -144,14 +153,30 @@
     requestAnimationFrame(placeFloating);
   }
 
+  // Out-of-flow media also moves without scroll or resize events — collapsing
+  // banners, carousels, late-loading content — so watch size and DOM changes too.
+  function startLayoutWatchers() {
+    if (layoutWatchers) return layoutWatchers;
+    window.addEventListener('scroll', scheduleFloatingUpdate, { passive: true, capture: true });
+    window.addEventListener('resize', scheduleFloatingUpdate, { passive: true });
+    const resize = new ResizeObserver(scheduleFloatingUpdate);
+    resize.observe(document.documentElement);
+    const mutation = new MutationObserver(scheduleFloatingUpdate);
+    mutation.observe(document.documentElement, {
+      childList: true,
+      subtree: true,
+      attributes: true,
+      attributeFilter: ['style', 'class', 'hidden']
+    });
+    layoutWatchers = { resize, mutation };
+    return layoutWatchers;
+  }
+
   function floatBadge(el, badge) {
     badge.classList.add('rv-badge-floating');
     document.body.appendChild(badge);
     floated.set(badge, el);
-    if (floated.size === 1) {
-      window.addEventListener('scroll', scheduleFloatingUpdate, { passive: true, capture: true });
-      window.addEventListener('resize', scheduleFloatingUpdate, { passive: true });
-    }
+    startLayoutWatchers().resize.observe(el);
     placeFloating();
   }
 
