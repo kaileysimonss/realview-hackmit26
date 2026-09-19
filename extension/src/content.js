@@ -105,6 +105,7 @@
 
   function clearMarks() {
     document.querySelectorAll('.rv-badge').forEach((node) => node.remove());
+    document.querySelectorAll('.rv-wrap').forEach((wrap) => Presentation.unwrapMedia(wrap));
     document.querySelectorAll('.rv-item').forEach((el) => {
       el.className = el.className
         .split(/\s+/)
