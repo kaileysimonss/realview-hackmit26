@@ -123,7 +123,7 @@
       apply();
     } finally {
       scanning = false;
-      if (token === generation && rescanRequested) {
+      if (rescanRequested) {
         rescanRequested = false;
         scheduleScan();
       }
