@@ -8,7 +8,13 @@
     video: self.RealViewVideoDetector
   };
 
-  const TEXT_SELECTOR = 'p, li, blockquote, figcaption, [data-realview-block]';
+  const TEXT_SELECTOR =
+    'p, li, blockquote, figcaption, h1, h2, h3, h4, h5, h6, dd, dt, td, th, div, span, [data-realview-block]';
+  // Excludes `span`: an inline span nested inside a paragraph (a styled date, a highlighted
+  // word, an inline link) is not a separate content block, so it must not disqualify its
+  // parent from being treated as leaf content.
+  const TEXT_BLOCK_SELECTOR =
+    'p, li, blockquote, figcaption, h1, h2, h3, h4, h5, h6, dd, dt, td, th, div, [data-realview-block]';
   const SENSITIVE_SELECTOR =
     'input, textarea, select, form, [contenteditable=""], [contenteditable="true"]';
   const SKIP_TAGS = new Set(['SCRIPT', 'STYLE', 'NOSCRIPT', 'CODE', 'PRE']);
@@ -50,7 +56,12 @@
 
     return {
       text: within(TEXT_SELECTOR).filter(
-        (el) => eligible(el) && !el.querySelector(TEXT_SELECTOR) && el.innerText.trim().length > 120
+        // Leaf-only: a block containing another block-level match is a wrapper, not content
+        // itself, so the inner match is what gets analyzed (nested inline spans don't count,
+        // or every paragraph with a styled word inside it would get excluded as a "wrapper").
+        // The char floor here is just a cheap pre-filter; text.js's own word-count gate does
+        // the real cutoff.
+        (el) => eligible(el) && !el.querySelector(TEXT_BLOCK_SELECTOR) && el.innerText.trim().length > 20
       ),
       image: within('img').filter(eligible),
       video: within('video').filter(eligible)
