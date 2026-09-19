@@ -8,6 +8,20 @@ const { SAMPLE, statsFromImageData } = self.RealViewPixels;
 const CACHE_LIMIT = 200;
 const statsCache = new Map();
 
+// The worker fetches with extension host permissions, so it only honours
+// requests from a page's own content script, and only for web media URLs.
+function fetchable(url, sender) {
+  if (!sender.tab || !sender.url) return false;
+  try {
+    const target = new URL(url);
+    const page = new URL(sender.url);
+    if (target.protocol !== 'http:' && target.protocol !== 'https:') return false;
+    return !(page.protocol === 'https:' && target.protocol === 'http:');
+  } catch (err) {
+    return false;
+  }
+}
+
 async function measure(url) {
   if (statsCache.has(url)) return statsCache.get(url);
 
@@ -57,6 +71,10 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
   }
 
   if (message && message.type === 'realview:pixelStats') {
+    if (!fetchable(message.url, sender)) {
+      sendResponse({ stats: null });
+      return false;
+    }
     measure(message.url).then((stats) => sendResponse({ stats }));
     return true;
   }
