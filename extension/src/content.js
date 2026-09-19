@@ -59,16 +59,55 @@
 
   function apply() {
     let flagged = 0;
+    let maxScore = 0;
+    const byKind = {
+      text: { scanned: 0, flagged: 0 },
+      image: { scanned: 0, flagged: 0 },
+      video: { scanned: 0, flagged: 0 }
+    };
+    const flaggedElements = [];
+
     results.forEach((result, el) => {
       if (!el.isConnected) return;
+      const counts = byKind[result.kind];
+      if (counts) counts.scanned += 1;
       if (result.score < settings.threshold) return;
       flagged += 1;
+      if (counts) counts.flagged += 1;
+      if (result.score > maxScore) maxScore = result.score;
+      flaggedElements.push(el);
       Presentation.attach(el, result, settings.treatments[result.kind]);
     });
+
+    // Sort in document order so "next/prev flagged" moves the way the eye reads the page.
+    flaggedElements.sort((a, b) => {
+      const position = a.compareDocumentPosition(b);
+      if (position & Node.DOCUMENT_POSITION_FOLLOWING) return -1;
+      if (position & Node.DOCUMENT_POSITION_PRECEDING) return 1;
+      return 0;
+    });
+
+    const scanned = byKind.text.scanned + byKind.image.scanned + byKind.video.scanned;
+
     Presentation.indicator({
       visible: settings.showIndicator,
-      scanned: results.size,
-      flagged
+      scanned,
+      flagged,
+      byKind,
+      maxScore,
+      flaggedElements,
+      settings,
+      hostname: location.hostname,
+      onThresholdChange: (value) => Settings.save({ threshold: value }),
+      onTreatmentChange: (kind, value) =>
+        Settings.save({ treatments: { ...settings.treatments, [kind]: value } }),
+      onToggleSite: () => {
+        const disabled = settings.disabledSites.includes(location.hostname);
+        const disabledSites = disabled
+          ? settings.disabledSites.filter((site) => site !== location.hostname)
+          : [...settings.disabledSites, location.hostname];
+        Settings.save({ disabledSites });
+      }
     });
     chrome.runtime.sendMessage({ type: 'realview:stats', flagged }).catch(() => {});
   }

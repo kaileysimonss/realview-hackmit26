@@ -1,17 +1,7 @@
 /* global chrome */
 (async () => {
   const Settings = self.RealViewSettings;
-
-  const LABELS = {
-    blur: 'Blur',
-    strikethrough: 'Strikethrough',
-    recolor: 'Recolor',
-    dim: 'Dim',
-    label: 'Label only',
-    hide: 'Hide',
-    warn: 'Warning overlay',
-    pause: 'Pause playback'
-  };
+  const LABELS = Settings.TREATMENT_LABELS;
 
   const els = {
     enabled: document.getElementById('enabled'),
