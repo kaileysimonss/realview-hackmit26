@@ -1,0 +1,14 @@
+{
+  "name": "realview-extension",
+  "private": true,
+  "version": "0.1.0",
+  "scripts": {
+    "build": "esbuild build-src/transformers-entry.js --bundle --format=esm --platform=browser --outfile=src/vendor/transformers.web.min.js"
+  },
+  "dependencies": {
+    "onnxruntime-web": "1.31.0-dev.20260914-8d85527a0"
+  },
+  "devDependencies": {
+    "esbuild": "^0.25.0"
+  }
+}

@@ -34,6 +34,26 @@ async function measure(url) {
   return stats;
 }
 
+// The service worker can't run transformers.js itself (no dynamic import(), no Worker in
+// ServiceWorkerGlobalScope), so text classification happens in an offscreen document — a
+// hidden real page — and this just relays messages to/from it.
+let creatingOffscreen = null;
+async function ensureOffscreenDocument() {
+  const existing = await chrome.runtime.getContexts({ contextTypes: ['OFFSCREEN_DOCUMENT'] });
+  if (existing.length > 0) return;
+  if (creatingOffscreen) {
+    await creatingOffscreen;
+    return;
+  }
+  creatingOffscreen = chrome.offscreen.createDocument({
+    url: 'offscreen.html',
+    reasons: ['WORKERS'],
+    justification: 'Run the local AI text-detection model (transformers.js) off the service worker, which cannot use dynamic import() or Worker.'
+  });
+  await creatingOffscreen;
+  creatingOffscreen = null;
+}
+
 chrome.runtime.onInstalled.addListener(async () => {
   const stored = await chrome.storage.sync.get(null);
   if (!stored || Object.keys(stored).length === 0) {
@@ -58,6 +78,26 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
 
   if (message && message.type === 'realview:pixelStats') {
     measure(message.url).then((stats) => sendResponse({ stats }));
+    return true;
+  }
+
+  // Only the untagged message from the content script is handled here — the forwarded
+  // copy below (target: 'offscreen') is for the offscreen document's own listener, not this
+  // one, so it isn't re-picked-up and looped back through this same branch.
+  if (message && message.type === 'realview:classifyText' && !message.target) {
+    (async () => {
+      try {
+        await ensureOffscreenDocument();
+        const response = await chrome.runtime.sendMessage({
+          target: 'offscreen',
+          type: 'realview:classifyText',
+          text: message.text
+        });
+        sendResponse(response);
+      } catch (err) {
+        sendResponse({ error: String((err && err.message) || err) });
+      }
+    })();
     return true;
   }
 

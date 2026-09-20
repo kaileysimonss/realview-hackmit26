@@ -1,0 +1,12 @@
+<!DOCTYPE html>
+<html>
+  <head>
+    <meta charset="utf-8" />
+    <title>RealView offscreen</title>
+  </head>
+  <body>
+    <!-- No UI: this page only exists to run transformers.js somewhere with a real DOM/window,
+         since the service worker can't use dynamic import() or Worker at all. -->
+    <script type="module" src="src/offscreen.js"></script>
+  </body>
+</html>
