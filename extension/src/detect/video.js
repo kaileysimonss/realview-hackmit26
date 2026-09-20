@@ -50,6 +50,22 @@
   // face-swap deepfakes" as a real, confirmed scope limit, not a bug to chase with more
   // threshold tuning — the second dataset's train/test instability already shows tuning won't
   // find a signal that isn't there.
+  //
+  // Also tried, also failed: two open-source ONNX image classifiers as a frame-level model
+  // signal (the same integration pattern used for image.js's SMOGY model), tested against 28
+  // frames sampled from the same face-swap dataset (14 real, 14 angads24/deepfake-video fakes,
+  // different sample than the AUC-0.558 run above). onnx-community/Deep-Fake-Detector-v2-Model
+  // (a ViT specifically marketed as a "deepfake detector") scored AUC 0.327 — worse than
+  // chance, outputting uniformly high "Deepfake" confidence (0.75-0.85) regardless of ground
+  // truth. image.js's own SMOGY model scored AUC 0.403 on the same frames — also worse than
+  // chance, uniformly near-zero "artificial" confidence. Neither model transfers to this
+  // domain (compressed, real-world-lit video frames of face-swap manipulation); both are
+  // confidently wrong rather than usefully uncertain. No model signal was added to video's
+  // frameScore()/combine() as a result — see conversation/commit history before re-attempting
+  // with these two models specifically. A model actually trained on FaceForensics++-style
+  // face-swap artifacts (e.g. HoopitAI's GenD models) might work, but isn't usable via
+  // transformers.js: it ships custom PyTorch modeling code (`trust_remote_code`), not a
+  // standard architecture transformers.js can load, and has no ONNX conversion available.
 
   function frameScore(stats) {
     return combine([
