@@ -170,15 +170,22 @@
     // as ONE more signal alongside the pixel heuristics, not a replacement for them: a bare
     // model score has no explainable "why", so folding it into the same combine() call keeps
     // every flag traceable to named, weighted signals instead of trusting an opaque number.
-    // Weighted above any single heuristic (0.5 vs. the heaviest heuristic's 0.28) since it's a
-    // trained classifier rather than a hand-picked pixel statistic, but well under a majority
-    // share so the heuristics still meaningfully move the score when the model is unsure or
-    // unavailable (cross-origin image, offscreen/message failure — see local-image.js).
+    //
+    // Weight was originally 0.5 and caused real-photo false positives: combine()'s noisy-OR
+    // formula scales a signal's relative weight by the active signal count, so at 0.5 (already
+    // more than half the combined weight of all 5 heuristics together) a SINGLE confident model
+    // call could push the score to ~0.85 by itself, regardless of what the heuristics said.
+    // Measured against the same 42 real / 76 AI validation images used for the heuristics
+    // above, the model alone scores AUC 0.753 with 5/42 real photos wrongly >0.5 confident —
+    // decent but not more reliable than the pixel heuristics (AUC 0.741), and definitely not
+    // reliable enough to single-handedly override them. 0.25 (below the heaviest heuristic's
+    // 0.28) caps a lone false-positive model call at ~0.50 — at the Balanced threshold, not
+    // through it — while still adding real weight when it agrees with the heuristics.
     const modelScore = await self.RealViewLocalImageModel.classify(el);
     const extraSignals =
       modelScore == null
         ? meta
-        : [...meta, { key: 'Local AI-image-detection model (Swin/SMOGY)', weight: 0.5, value: modelScore }];
+        : [...meta, { key: 'Local AI-image-detection model (Swin/SMOGY)', weight: 0.25, value: modelScore }];
 
     const { score, signals } = scoreStats(stats, extraSignals);
     return {
