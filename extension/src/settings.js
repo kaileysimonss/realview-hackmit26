@@ -3,9 +3,11 @@
   const DEFAULTS = {
     enabled: true,
     // Per-kind, not one flat number. Text (heuristics + a calibrated local model signal, the
-    // model weighted at 0.3 — see text.js) reaches perfect separation on its 30-example
-    // validation corpus (AUC 1.0, human max score 0.559 vs AI min 0.768), moved up from the old
-    // heuristics-only value (0.55) to sit safely inside that gap. Image needs a higher
+    // model weighted at 0.7 — see text.js) reaches perfect separation on its 30-example
+    // validation corpus (AUC 1.0, human max score 0.675 vs AI min 0.755 — a narrow 0.08-wide
+    // gap; text.js has the full history of why it's narrower than an 0.3 weight would give),
+    // moved up from the old value (0.55, tuned for the un-weighted heuristics) to sit inside
+    // that gap. Image needs a higher
     // bar than text before flagging (held-out AUC 0.741, and a confirmed false-positive issue
     // on portraits AND texture-dense photography like wood grain/foliage — see image.js).
     // Image's threshold was raised from 0.65 to 0.75 after measuring that its false positives
@@ -19,7 +21,7 @@
     // validation (AUC 0.167 -> 0.917 after fixing signal directions that don't match image's)
     // and for why video has no model signal (two candidates tested, both failed on real
     // face-swap data). Matches "Balanced" below.
-    thresholds: { text: 0.65, image: 0.75, video: 0.5 },
+    thresholds: { text: 0.7, image: 0.75, video: 0.5 },
     treatments: {
       text: 'blur',
       image: 'blur',
@@ -42,13 +44,13 @@
     {
       id: 'balanced',
       label: 'Balanced',
-      thresholds: { text: 0.65, image: 0.75, video: 0.5 },
+      thresholds: { text: 0.7, image: 0.75, video: 0.5 },
       hint: 'Recommended default'
     },
     {
       id: 'strict',
       label: 'Strict',
-      thresholds: { text: 0.7, image: 0.9, video: 0.6 },
+      thresholds: { text: 0.73, image: 0.9, video: 0.6 },
       hint: 'Only confident, strong-signal flags'
     }
   ];
