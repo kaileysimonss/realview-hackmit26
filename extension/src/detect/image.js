@@ -78,6 +78,23 @@
   // which this heuristic system doesn't have. Decision (see conversation/commit history):
   // document and accept, rather than chase a global threshold change that can't fix a
   // category-specific problem without breaking the other two categories.
+  //
+  // SECOND, DISTINCT KNOWN LIMITATION found while diagnosing image-model false positives
+  // (see local-image.js / offscreen.js): real photos with texture that fills the ENTIRE frame
+  // (wood-grain flat-lays, dense foliage/flower-field close-ups) also false-positive, for a
+  // different reason than portraits. Measured on the 10 real photos that scored above 0.65 in
+  // this category: their mean noise/edges/noiseUniformity (0.0292 / 0.1191 / 0.4292) are
+  // nearly identical to the entire AI validation set's own average (0.0281 / 0.1101 / 0.5025)
+  // — not outliers a threshold missed, but squarely at the AI population's center on every
+  // axis these signals measure. A grid search over reweightings of these same 5 signals (see
+  // commit history) found nothing that beats the baseline weights above: every alternative
+  // tried made both the false-positive rate AND AI recall worse. Whole-frame pixel statistics
+  // fundamentally cannot separate "naturally, evenly textured real photo" from "AI-generated
+  // image" here — same conclusion as the portrait case, different content category. Mitigated
+  // (not fixed) by raising the Balanced threshold from 0.65 to 0.75 (settings.js) — the false
+  // positives here score 0.72-0.94, so this cuts them from 25% to 22.5% of real photos at the
+  // cost of AI recall dropping from ~89% to ~76% on the validation set. A real trade, not a
+  // free win; the underlying separability problem is unsolved.
   const DEFAULT_THRESHOLDS = {
     noise: [0.0181, 0.029],
     edges: [0.0785, 0.122],
