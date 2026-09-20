@@ -2,11 +2,15 @@
 (() => {
   const DEFAULTS = {
     enabled: true,
-    // Per-kind, not one flat number: text tested far more reliably than image (held-out AUC
+    // Per-kind, not one flat number. Text tested far more reliably than image (held-out AUC
     // 0.956 vs 0.741, and image has a confirmed false-positive issue on portraits — see
     // image.js), so it can afford to sit lower/more sensitive without the same false-positive
-    // cost. Matches the "Balanced" preset below.
-    thresholds: { text: 0.55, image: 0.65, video: 0.65 },
+    // cost. Video has its own, lower/narrower range too: tested against 11 real videos (3 real
+    // camera footage, 8 real AI-generated clips), scores landed around 0.39-0.45 for real and
+    // 0.39-0.64 for AI — a much narrower band than image's, so image's threshold values would
+    // give video near-zero recall. See video.js for the full validation (AUC 0.167 -> 0.917
+    // after fixing signal directions that don't match image's). Matches "Balanced" below.
+    thresholds: { text: 0.55, image: 0.65, video: 0.5 },
     treatments: {
       text: 'blur',
       image: 'blur',
@@ -23,19 +27,19 @@
     {
       id: 'sensitive',
       label: 'Sensitive',
-      thresholds: { text: 0.4, image: 0.5, video: 0.5 },
+      thresholds: { text: 0.4, image: 0.5, video: 0.4 },
       hint: 'Flags more, including borderline cases'
     },
     {
       id: 'balanced',
       label: 'Balanced',
-      thresholds: { text: 0.55, image: 0.65, video: 0.65 },
+      thresholds: { text: 0.55, image: 0.65, video: 0.5 },
       hint: 'Recommended default'
     },
     {
       id: 'strict',
       label: 'Strict',
-      thresholds: { text: 0.7, image: 0.8, video: 0.8 },
+      thresholds: { text: 0.7, image: 0.8, video: 0.6 },
       hint: 'Only confident, strong-signal flags'
     }
   ];

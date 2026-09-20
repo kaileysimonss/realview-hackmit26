@@ -39,7 +39,7 @@ chrome.runtime.onInstalled.addListener(async () => {
   if (!stored || Object.keys(stored).length === 0) {
     await chrome.storage.sync.set({
       enabled: true,
-      thresholds: { text: 0.55, image: 0.65, video: 0.65 }, // matches the "Balanced" preset in settings.js
+      thresholds: { text: 0.55, image: 0.65, video: 0.5 }, // matches the "Balanced" preset in settings.js
       treatments: { text: 'blur', image: 'blur', video: 'warn' },
       disabledSites: [],
       showIndicator: true

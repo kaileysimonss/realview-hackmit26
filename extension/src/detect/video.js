@@ -1,6 +1,6 @@
 (() => {
   const { clamp, ramp, combine, verdict, topSignals } = self.RealViewSignals;
-  const { pixelStats, remotePixelStats, scoreStats } = self.RealViewImageDetector;
+  const { pixelStats, remotePixelStats } = self.RealViewImageDetector;
 
   const NAME_HINTS =
     /(sora|runway|pika|veo|synthetic|deepfake|ai-?gen|generated|kling|hailuo|luma-?ai|seedance|wan2|grok-?imagine|midjourney)/i;
@@ -10,19 +10,60 @@
   // Matches image.js's FLAT_GRAPHIC_COLOR_LIMIT — see there for why.
   const FLAT_GRAPHIC_COLOR_LIMIT = 24;
 
-  // Same corrected direction as image.js's DEFAULT_THRESHOLDS (see that file for the real-data
-  // validation behind it — real photos vs real AI-generated images, not assumed priors), with
-  // the interval pulled ~15% toward the midpoint so video is modestly more sensitive than
-  // image's own thresholds. That specific 15% pull is NOT independently validated against real
-  // video (no labeled real-vs-AI video dataset was available), only reasoned from the same
-  // physical signals — treat it as a starting point more than a measured value.
+  // These used to be image.js's thresholds pulled 15% toward the midpoint — an unvalidated
+  // guess, explicitly flagged as such. Tested against 11 real videos (3 real camera footage,
+  // 8 real AI-generated clips; Wikimedia Commons, held-out 60/40 split at the video level):
+  // that guess scored AUC 0.167 — WORSE than random, because video frames (extracted from
+  // compressed codecs mid-stream) behave differently from standalone JPEG stills. On real
+  // video frame data, noise and edges are the OPPOSITE direction from image.js (real footage
+  // had MORE noise/edge energy than the AI clips, not less — Cohen's d -0.80 / -0.62), and
+  // noiseUniformity is also flipped from image's direction (d +1.98 — AI clips had more
+  // uniform grain, matching the original hypothesis, but image's real-photo data pointed the
+  // other way). saturation and tonalSpread agreed with image's direction and were the two
+  // strongest signals here (d +2.23 / +0.88). Because the directions genuinely differ from
+  // image's, video has its own scoring function below instead of reusing image.js's
+  // scoreStats. Held-out test after this fix: 3/4 videos correctly ranked (up from what was
+  // effectively anti-correlated before). n=11 videos total is still small — treat this as a
+  // real, validated improvement in direction, not a precisely-measured final calibration.
   const VIDEO_THRESHOLDS = {
-    noise: [0.0189, 0.0281],
-    edges: [0.0818, 0.1188],
-    saturation: [0.274, 0.349],
-    tonalSpread: [0.814, 0.851],
-    noiseUniformity: [0.408, 0.756]
+    noise: [0.0255, 0.0298], // LOW = suspicious (opposite of image.js)
+    edges: [0.1022, 0.1081], // LOW = suspicious (opposite of image.js)
+    saturation: [0.184, 0.47], // HIGH = suspicious (same as image.js)
+    tonalSpread: [0.781, 0.845], // HIGH = suspicious (same as image.js)
+    noiseUniformity: [0.329, 0.553] // HIGH = suspicious (opposite of image.js)
   };
+
+  // IMPORTANT SCOPE LIMIT, confirmed on a second, larger, different real dataset: the numbers
+  // above only work for whole-video generation (Sora/Grok/Seedance-style — the entire frame is
+  // synthetic). They do NOT work for face-swap deepfakes (FaceForensics++-style — a real video
+  // with just the face region replaced). Tested against 50 real videos (25 real, 25 face-swap
+  // fakes; angads24/deepfake-video on Hugging Face, held-out 60/40 split): this exact formula
+  // scored AUC 0.558 there — essentially chance, versus 0.917 on the whole-generation sample.
+  // Per-signal effect sizes on face-swap data were also unstable across train/test splits (e.g.
+  // noise flipped from Cohen's d +0.29 to -0.94), which is a sign of no real population-level
+  // signal, not just a smaller effect. The likely reason: whole-frame noise/edge/saturation
+  // averages are dominated by the mostly-real background, camera, and compression — a
+  // face-swap only alters a small region, so it doesn't move the whole-frame statistics enough
+  // to matter. Detecting THAT category would need face-region-specific analysis (face
+  // detection, blend-boundary artifacts, temporal flicker localized to the face), which this
+  // heuristic system doesn't have. Treat "detects whole-video AI generation, blind to
+  // face-swap deepfakes" as a real, confirmed scope limit, not a bug to chase with more
+  // threshold tuning — the second dataset's train/test instability already shows tuning won't
+  // find a signal that isn't there.
+
+  function frameScore(stats) {
+    return combine([
+      { key: 'Elevated grain/noise', weight: 0.098, value: 1 - ramp(stats.noise, ...VIDEO_THRESHOLDS.noise) },
+      { key: 'Dense fine-detail texture', weight: 0.076, value: 1 - ramp(stats.edges, ...VIDEO_THRESHOLDS.edges) },
+      { key: 'Hyper-saturated palette', weight: 0.274, value: ramp(stats.saturation, ...VIDEO_THRESHOLDS.saturation) },
+      { key: 'Wide tonal range', weight: 0.108, value: ramp(stats.tonalSpread, ...VIDEO_THRESHOLDS.tonalSpread) },
+      {
+        key: 'Uniform grain across the frame',
+        weight: 0.243,
+        value: stats.noiseUniformity == null ? undefined : ramp(stats.noiseUniformity, ...VIDEO_THRESHOLDS.noiseUniformity)
+      }
+    ]);
+  }
 
   function metadataValue(el) {
     const haystack = `${el.currentSrc || el.src || ''} ${el.getAttribute('poster') || ''} ${el.dataset.source || ''}`;
@@ -93,7 +134,7 @@
       if (poster) {
         // Same double-damping fix as the main path below — this value is already a
         // combine() output, about to go through combine() again.
-        const posterScore = clamp(scoreStats(poster, [], VIDEO_THRESHOLDS).score ** 0.7);
+        const posterScore = clamp(frameScore(poster).score ** 0.7);
         const { score, signals } = combine([
           { key: 'Poster-frame synthetic signals', weight: 0.6, value: posterScore },
           ...meta
@@ -132,7 +173,7 @@
       };
     }
 
-    const frameScores = photographicFrames.map((stats) => scoreStats(stats, [], VIDEO_THRESHOLDS).score);
+    const frameScores = photographicFrames.map((stats) => frameScore(stats).score);
     const mean = frameScores.reduce((a, b) => a + b, 0) / frameScores.length;
 
     // Generated clips tend to look uniformly "clean" frame to frame.
