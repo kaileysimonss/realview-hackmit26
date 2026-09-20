@@ -1,10 +1,12 @@
 /* global chrome */
 (() => {
-  const { clamp, verdict } = self.RealViewSignals;
-  const TAG = '[RealView/LocalModel]';
+  const TAG = '[RealView/LocalTextModel]';
   const MAX_CHARS = 2000; // the tokenizer truncates anyway; this just bounds request size/latency
 
-  async function analyze(rawText) {
+  // Returns the model's raw "ai" probability (0..1), or null if unavailable (message/offscreen
+  // failure). text.js treats null as "no signal" and scores on its heuristics alone — see
+  // text.js for why the raw value is calibrated before use rather than trusted directly.
+  async function classify(rawText) {
     const text = (rawText || '').replace(/\s+/g, ' ').trim();
     if (text.length < 20) return null;
     const sample = text.slice(0, MAX_CHARS);
@@ -24,17 +26,9 @@
       return null;
     }
 
-    console.log(`${TAG} ← ai score ${response.score.toFixed(3)}`);
-
-    const score = clamp(response.score);
-    return {
-      kind: 'text',
-      score,
-      verdict: verdict(score),
-      signals: [`Local RoBERTa (RAID-trained) AI-detection score: ${Math.round(score * 100)}%`],
-      sampleSize: sample.length
-    };
+    console.log(`${TAG} ← raw ai score ${response.score.toFixed(3)}`);
+    return response.score;
   }
 
-  self.RealViewLocalTextDetector = { analyze };
+  self.RealViewLocalTextModel = { classify };
 })();

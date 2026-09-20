@@ -3,10 +3,12 @@
   const Settings = self.RealViewSettings;
   const Presentation = self.RealViewPresentation;
   const detectors = {
-    // Local RoBERTa classifier, run via an offscreen document (relayed through the service
-    // worker) rather than the service worker itself, which can't run transformers.js at all.
-    // Watch the console for "[RealView/LocalModel]" — first call downloads the ~120MB model.
-    text: self.RealViewLocalTextDetector,
+    // text.js combines its own pattern heuristics with a local RoBERTa classifier (run via an
+    // offscreen document, relayed through the service worker — see local-text.js) as one more
+    // signal. Watch the console for "[RealView/LocalTextModel]" — first call downloads the
+    // ~120MB model. image.js follows the same heuristics+model pattern; video.js is
+    // heuristics-only (see video.js for why).
+    text: self.RealViewTextDetector,
     image: self.RealViewImageDetector,
     video: self.RealViewVideoDetector
   };

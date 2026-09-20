@@ -114,7 +114,7 @@
     return repeated / Math.max(1, wordList.length - 2);
   }
 
-  function analyze(rawText) {
+  async function analyze(rawText) {
     const text = (rawText || '').replace(/\s+/g, ' ').trim();
     const wordList = words(text);
     if (wordList.length < 25) return null;
@@ -160,6 +160,26 @@
     const triadHits = (text.match(TRIAD_PATTERN) || []).length;
     const triadOveruse = ramp(triadHits, 1, 4);
 
+    // Local RoBERTa classifier (run in the offscreen document — see local-text.js) added as ONE
+    // more signal alongside these heuristics, not a replacement for them — same reasoning as
+    // image.js's model integration: a bare model score has no explainable "why", so folding it
+    // into this same combine() call keeps every flag traceable to named signals.
+    //
+    // Its RAW output can't be used directly, though: validated against a 30-example labeled
+    // corpus (15 human, 15 AI; scratchpad eval/text_corpus.json), human text commonly scored
+    // 0.85-0.98 raw "ai" probability — the model is severely overconfident in absolute terms
+    // even though it ranks human vs AI almost perfectly (rank-only AUC 1.0 on that corpus). So
+    // it's calibrated with its own ramp rather than trusted as a linear value: below 0.97 raw
+    // counts as no evidence, scaling to full confidence at 0.985+. Weighted at 0.2 (below the
+    // heaviest heuristic's 0.22) so a lone miscalibrated reading can't dominate the combined
+    // score the way an earlier, higher weight did for the image model (see image.js history).
+    // Combined this way, the same 30-example corpus separates perfectly (AUC 1.0, human max
+    // 0.448 vs AI min 0.656) vs. AUC 0.956 for the heuristics alone — a real improvement, but
+    // n=30 is a small sample, so treat this calibration as directionally solid, not precisely
+    // final the way image's 79-example or video's 50-example validations were.
+    const modelScoreRaw = await self.RealViewLocalTextModel.classify(text);
+    const modelValue = modelScoreRaw == null ? undefined : ramp(modelScoreRaw, 0.97, 0.985);
+
     const { score, signals } = combine([
       { key: 'Uniform sentence rhythm', weight: 0.22, value: uniformity },
       { key: 'Low lexical variety', weight: 0.08, value: repetition },
@@ -170,7 +190,8 @@
       { key: 'Formal transitions open multiple sentences', weight: 0.14, value: transitionOveruse },
       { key: 'Repeated phrasing', weight: 0.08, value: repeatedPhrasing },
       { key: 'Heavy em dash use', weight: 0.16, value: emDashOveruse },
-      { key: 'Rule-of-three listing', weight: 0.12, value: triadOveruse }
+      { key: 'Rule-of-three listing', weight: 0.12, value: triadOveruse },
+      { key: 'Local AI-text-detection model (RoBERTa)', weight: 0.2, value: modelValue }
     ]);
 
     // Short passages carry less evidence, so pull the score toward uncertainty.

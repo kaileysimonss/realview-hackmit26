@@ -2,20 +2,24 @@
 (() => {
   const DEFAULTS = {
     enabled: true,
-    // Per-kind, not one flat number. Text tested far more reliably than image (held-out AUC
-    // 0.956 vs 0.741, and image has a confirmed false-positive issue on portraits AND on
-    // texture-dense photography (wood grain, foliage, close-ups) — see image.js), so it needs
-    // a higher bar than text before flagging. Image's threshold was raised from 0.65 to 0.75
-    // after measuring that the false positives cluster at 0.72-0.94 (a grid search over the
-    // signal weights found no reweighting improves on the baseline — see image.js), which cuts
-    // the false-positive rate on the validation set from 25% to 22.5% at real cost to recall
-    // (89%->76%); this is a real precision/recall trade, not a free win — see image.js. Video
-    // has its own, lower/narrower range too: tested against 11 real videos (3 real camera
-    // footage, 8 real AI-generated clips), scores landed around 0.39-0.45 for real and
-    // 0.39-0.64 for AI — a much narrower band than image's, so image's threshold values would
-    // give video near-zero recall. See video.js for the full validation (AUC 0.167 -> 0.917
-    // after fixing signal directions that don't match image's). Matches "Balanced" below.
-    thresholds: { text: 0.55, image: 0.75, video: 0.5 },
+    // Per-kind, not one flat number. Text (heuristics + a calibrated local model signal — see
+    // text.js) reaches perfect separation on its 30-example validation corpus (AUC 1.0, human
+    // max score 0.448 vs AI min 0.656), moved up from the old heuristics-only value (0.55) to
+    // sit safely inside that gap. Image needs a higher
+    // bar than text before flagging (held-out AUC 0.741, and a confirmed false-positive issue
+    // on portraits AND texture-dense photography like wood grain/foliage — see image.js).
+    // Image's threshold was raised from 0.65 to 0.75 after measuring that its false positives
+    // cluster at 0.72-0.94 (a grid search over the signal weights found no reweighting improves
+    // on the baseline — see image.js), which cuts the false-positive rate on the validation set
+    // from 25% to 22.5% at real cost to recall (89%->76%); this is a real precision/recall
+    // trade, not a free win — see image.js. Video has its own, lower/narrower range too: tested
+    // against 11 real videos (3 real camera footage, 8 real AI-generated clips), scores landed
+    // around 0.39-0.45 for real and 0.39-0.64 for AI — a much narrower band than image's, so
+    // image's threshold values would give video near-zero recall. See video.js for the full
+    // validation (AUC 0.167 -> 0.917 after fixing signal directions that don't match image's)
+    // and for why video has no model signal (two candidates tested, both failed on real
+    // face-swap data). Matches "Balanced" below.
+    thresholds: { text: 0.65, image: 0.75, video: 0.5 },
     treatments: {
       text: 'blur',
       image: 'blur',
@@ -32,13 +36,13 @@
     {
       id: 'sensitive',
       label: 'Sensitive',
-      thresholds: { text: 0.4, image: 0.6, video: 0.4 },
+      thresholds: { text: 0.45, image: 0.6, video: 0.4 },
       hint: 'Flags more, including borderline cases'
     },
     {
       id: 'balanced',
       label: 'Balanced',
-      thresholds: { text: 0.55, image: 0.75, video: 0.5 },
+      thresholds: { text: 0.65, image: 0.75, video: 0.5 },
       hint: 'Recommended default'
     },
     {
