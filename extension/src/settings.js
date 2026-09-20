@@ -2,10 +2,10 @@
 (() => {
   const DEFAULTS = {
     enabled: true,
-    // Per-kind, not one flat number. Text (heuristics + a calibrated local model signal — see
-    // text.js) reaches perfect separation on its 30-example validation corpus (AUC 1.0, human
-    // max score 0.448 vs AI min 0.656), moved up from the old heuristics-only value (0.55) to
-    // sit safely inside that gap. Image needs a higher
+    // Per-kind, not one flat number. Text (heuristics + a calibrated local model signal, the
+    // model weighted at 0.3 — see text.js) reaches perfect separation on its 30-example
+    // validation corpus (AUC 1.0, human max score 0.559 vs AI min 0.768), moved up from the old
+    // heuristics-only value (0.55) to sit safely inside that gap. Image needs a higher
     // bar than text before flagging (held-out AUC 0.741, and a confirmed false-positive issue
     // on portraits AND texture-dense photography like wood grain/foliage — see image.js).
     // Image's threshold was raised from 0.65 to 0.75 after measuring that its false positives

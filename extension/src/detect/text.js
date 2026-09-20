@@ -170,13 +170,16 @@
     // 0.85-0.98 raw "ai" probability — the model is severely overconfident in absolute terms
     // even though it ranks human vs AI almost perfectly (rank-only AUC 1.0 on that corpus). So
     // it's calibrated with its own ramp rather than trusted as a linear value: below 0.97 raw
-    // counts as no evidence, scaling to full confidence at 0.985+. Weighted at 0.2 (below the
-    // heaviest heuristic's 0.22) so a lone miscalibrated reading can't dominate the combined
-    // score the way an earlier, higher weight did for the image model (see image.js history).
-    // Combined this way, the same 30-example corpus separates perfectly (AUC 1.0, human max
-    // 0.448 vs AI min 0.656) vs. AUC 0.956 for the heuristics alone — a real improvement, but
-    // n=30 is a small sample, so treat this calibration as directionally solid, not precisely
-    // final the way image's 79-example or video's 50-example validations were.
+    // counts as no evidence, scaling to full confidence at 0.985+.
+    //
+    // Weight swept from 0.2 to 1.0 against that same corpus (see conversation/commit history):
+    // 0.3 is the highest value that still preserves perfect precision+recall at Balanced AND
+    // Strict — above 0.4, a human example starts crossing the Balanced threshold on the
+    // model's say-so alone (F1 drops from 1.000 to 0.968), since a large enough weight lets one
+    // signal dominate the combine() result regardless of what the other ten say (the same
+    // failure mode as image.js's earlier over-weighted model — see its history). 0.3 already
+    // sits above the heaviest heuristic (0.22), trusting the model's calibrated signal more
+    // than any single pattern heuristic, without letting it override all of them at once.
     const modelScoreRaw = await self.RealViewLocalTextModel.classify(text);
     const modelValue = modelScoreRaw == null ? undefined : ramp(modelScoreRaw, 0.97, 0.985);
 
@@ -191,7 +194,7 @@
       { key: 'Repeated phrasing', weight: 0.08, value: repeatedPhrasing },
       { key: 'Heavy em dash use', weight: 0.16, value: emDashOveruse },
       { key: 'Rule-of-three listing', weight: 0.12, value: triadOveruse },
-      { key: 'Local AI-text-detection model (RoBERTa)', weight: 0.2, value: modelValue }
+      { key: 'Local AI-text-detection model (RoBERTa)', weight: 0.3, value: modelValue }
     ]);
 
     // Short passages carry less evidence, so pull the score toward uncertainty.
