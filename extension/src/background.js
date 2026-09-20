@@ -48,7 +48,7 @@ async function ensureOffscreenDocument() {
   creatingOffscreen = chrome.offscreen.createDocument({
     url: 'offscreen.html',
     reasons: ['WORKERS'],
-    justification: 'Run the local AI text-detection model (transformers.js) off the service worker, which cannot use dynamic import() or Worker.'
+    justification: 'Run the local AI text- and image-detection models (transformers.js) off the service worker, which cannot use dynamic import() or Worker.'
   });
   await creatingOffscreen;
   creatingOffscreen = null;
@@ -92,6 +92,23 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
           target: 'offscreen',
           type: 'realview:classifyText',
           text: message.text
+        });
+        sendResponse(response);
+      } catch (err) {
+        sendResponse({ error: String((err && err.message) || err) });
+      }
+    })();
+    return true;
+  }
+
+  if (message && message.type === 'realview:classifyImage' && !message.target) {
+    (async () => {
+      try {
+        await ensureOffscreenDocument();
+        const response = await chrome.runtime.sendMessage({
+          target: 'offscreen',
+          type: 'realview:classifyImage',
+          dataUrl: message.dataUrl
         });
         sendResponse(response);
       } catch (err) {

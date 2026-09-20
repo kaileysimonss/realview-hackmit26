@@ -153,8 +153,9 @@
     if (stats.colorCount < FLAT_GRAPHIC_COLOR_LIMIT) {
       // Metadata (filename/alt naming a generator) still counts — an AI-generated logo/icon
       // with a revealing filename should still flag — but the photographic-forensics signals
-      // are skipped entirely rather than scored and discounted, since they have nothing
-      // reliable to say about a flat graphic either way.
+      // (heuristic AND model) are skipped entirely rather than scored and discounted, since
+      // the model is trained on photographs and has nothing reliable to say about a flat
+      // graphic either way.
       const { score, signals } = combine(meta);
       return {
         kind: 'image',
@@ -165,7 +166,21 @@
       };
     }
 
-    const { score, signals } = scoreStats(stats, meta);
+    // Local Swin classifier (SMOGY, run in the offscreen document — see local-image.js) added
+    // as ONE more signal alongside the pixel heuristics, not a replacement for them: a bare
+    // model score has no explainable "why", so folding it into the same combine() call keeps
+    // every flag traceable to named, weighted signals instead of trusting an opaque number.
+    // Weighted above any single heuristic (0.5 vs. the heaviest heuristic's 0.28) since it's a
+    // trained classifier rather than a hand-picked pixel statistic, but well under a majority
+    // share so the heuristics still meaningfully move the score when the model is unsure or
+    // unavailable (cross-origin image, offscreen/message failure — see local-image.js).
+    const modelScore = await self.RealViewLocalImageModel.classify(el);
+    const extraSignals =
+      modelScore == null
+        ? meta
+        : [...meta, { key: 'Local AI-image-detection model (Swin/SMOGY)', weight: 0.5, value: modelScore }];
+
+    const { score, signals } = scoreStats(stats, extraSignals);
     return {
       kind: 'image',
       score,

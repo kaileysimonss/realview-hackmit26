@@ -27,6 +27,7 @@
         "src/detect/pixels.js",
         "src/detect/text.js",
         "src/detect/local-text.js",
+        "src/detect/local-image.js",
         "src/detect/image.js",
         "src/detect/video.js",
         "src/presentation.js",
