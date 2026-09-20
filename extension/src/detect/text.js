@@ -174,13 +174,15 @@
     //
     // Weight swept from 0.2 to 1.0 against that same corpus (see conversation/commit history).
     // 0.3 was the highest value that preserved perfect precision+recall at BOTH Balanced and
-    // Strict with a wide margin (human max 0.559 vs AI min 0.768). Explicitly pushed higher to
-    // 0.7 per request despite that tradeoff: AUC is still 1.0 at 0.7, but the safe separation
-    // band narrows a lot (human max 0.675 vs AI min 0.755 — a 0.08-wide gap vs. 0.3's 0.21-wide
-    // one), so settings.js's Balanced/Strict thresholds had to move up to still sit inside it.
-    // A narrower margin means less room for real-world text (outside this 30-example corpus)
-    // to land safely on the correct side — more sensitive to exactly the kind of miscalibration
-    // this ramp was built to guard against. Noted here rather than silently narrowed.
+    // Strict with a wide margin (human max 0.559 vs AI min 0.768). Pushed higher by request
+    // despite that tradeoff — first to 0.7 (human max 0.675 vs AI min 0.755, an 0.08-wide gap),
+    // then to 0.9: the gap barely moves further (0.674 vs 0.750, ~0.076-wide) since combine()
+    // caps any one signal's contribution regardless of how much weight it's given, so 0.7->0.9
+    // is mostly diminishing returns rather than the model mattering much more. AUC stays 1.0 at
+    // both, and settings.js's existing 0.7/0.73 Balanced/Strict thresholds still sit inside the
+    // 0.9 gap without adjustment. Still: this is a narrower margin than 0.3 gave, meaning less
+    // room for real-world text (outside this 30-example corpus) to land on the correct side —
+    // more sensitive to exactly the kind of miscalibration this ramp was built to guard against.
     const modelScoreRaw = await self.RealViewLocalTextModel.classify(text);
     const modelValue = modelScoreRaw == null ? undefined : ramp(modelScoreRaw, 0.97, 0.985);
 
@@ -195,7 +197,7 @@
       { key: 'Repeated phrasing', weight: 0.08, value: repeatedPhrasing },
       { key: 'Heavy em dash use', weight: 0.16, value: emDashOveruse },
       { key: 'Rule-of-three listing', weight: 0.12, value: triadOveruse },
-      { key: 'Local AI-text-detection model (RoBERTa)', weight: 0.7, value: modelValue }
+      { key: 'Local AI-text-detection model (RoBERTa)', weight: 0.9, value: modelValue }
     ]);
 
     // Short passages carry less evidence, so pull the score toward uncertainty.
